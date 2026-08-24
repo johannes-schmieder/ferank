@@ -14,4 +14,5 @@ mata:
 assert(sum((1, 2, 3)) == 6)
 end
 
+error 9
 display as result "FIRMLADDER STATA MATA SMOKE PASS"
