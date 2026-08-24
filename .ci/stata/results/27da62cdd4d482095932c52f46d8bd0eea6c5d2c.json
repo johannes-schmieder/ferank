@@ -1,0 +1,39 @@
+{
+  "completed_at": "2026-08-24T10:05:27.235625Z",
+  "duration_seconds": 0.09,
+  "failure_detail": "Stata test suite returned r(9)",
+  "failure_kind": "stata_error",
+  "platform": "Unix; Mac (Apple Silicon)",
+  "process_rc": 0,
+  "profile": "quick",
+  "ref": "refs/heads/codex/ci-bootstrap",
+  "repository": "johannes-schmieder/firmladder",
+  "required_log_markers": [
+    {
+      "marker": "FIRMLADDER STATA MATA SMOKE PASS",
+      "present": false
+    }
+  ],
+  "run_attempt": "1",
+  "run_id": "32714974195",
+  "runner_name": "macstudio-stata-mp18-firmladder",
+  "rust_mode": "toolchain-smoke",
+  "rust_rc": 0,
+  "rust_status": "success",
+  "rust_toolchain": "stable-aarch64-apple-darwin",
+  "rustc_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "schema_version": 1,
+  "started_at": "2026-08-24T10:05:27.145378Z",
+  "stata_bundle_version": "18.0.130",
+  "stata_edition": "MP",
+  "stata_executable": "/Applications/Stata/StataMP.app/Contents/MacOS/stata-mp",
+  "stata_processors": 8,
+  "stata_rc": 9,
+  "stata_status": "failure",
+  "stata_version": "18",
+  "status": "failure",
+  "suite": "ci/stata_smoke.do",
+  "tested_sha": "27da62cdd4d482095932c52f46d8bd0eea6c5d2c",
+  "tests_failed": 1,
+  "tests_passed": 0
+}

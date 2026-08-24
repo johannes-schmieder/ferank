@@ -9,14 +9,14 @@ The workflow is named **Licensed Stata and Rust CI**. A normal push to `main` or
 1. a licensed Stata/MP batch test; and
 2. a Rust quick test.
 
-At bootstrap, the Stata test is an infrastructure smoke test and the Rust test compiles and runs a synthetic program in a temporary directory. No `texpdf` package API or TeX compiler backend has been chosen yet. When a `Cargo.toml` is later added, the Rust lane automatically changes to repository checks: `cargo fmt --check`, strict Clippy, and workspace tests.
+At bootstrap, the Stata test is an infrastructure smoke test and the Rust test compiles and runs a synthetic program in a temporary directory. No `firmladder` package API or numerical backend has been chosen yet. When a `Cargo.toml` is later added, the Rust lane automatically changes to repository checks: `cargo fmt --check`, strict Clippy, and workspace tests.
 
 There is no self-hosted `pull_request` trigger and no redundant GitHub-hosted matrix on ordinary pushes.
 
 ## Available test machine
 
-- Runner: `macstudio-stata-mp18-texpdf`
-- Labels: `self-hosted`, `macOS`, `ARM64`, `stata`, `stata-mp`, `stata18`, `texpdf`
+- Runner: `macstudio-stata-mp18-firmladder`
+- Labels: `self-hosted`, `macOS`, `ARM64`, `stata`, `stata-mp`, `stata18`, `firmladder`
 - Hardware: Mac Studio `Mac14,14`, Apple M2 Ultra, arm64, 24 CPU cores, 192 GB RAM
 - Operating system: macOS 26.5.2
 - Licensed Stata: Stata/MP 18, bundle 18.0.130
@@ -24,7 +24,6 @@ There is no self-hosted `pull_request` trigger and no redundant GitHub-hosted ma
 - Working Stata batch form: `stata-mp -q -b do FILE.do`
 - Rust: stable 1.97.1, plus installed 1.81.0 and 1.85.1 toolchains; rustfmt and Clippy are available
 - Native build tools: Apple clang/Xcode
-- TeX tools currently present on the Mac: TeX Live 2023, `latexmk`, pdfLaTeX, XeLaTeX, LuaLaTeX, BibTeX, and Biber
 
 Treat those versions as the current runner environment, not as a future public package compatibility promise. A repository `rust-toolchain.toml` may pin Rust when development begins.
 
