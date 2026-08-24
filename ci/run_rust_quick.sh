@@ -36,10 +36,10 @@ if [[ -f Cargo.toml ]]; then
   "$rustup_bin" run "$toolchain" cargo test "${locked[@]}" --workspace --all-targets --all-features
   echo "RUST_QUICK_MODE=repository"
 else
-  smoke_root="${RUNNER_TEMP:-/private/tmp}/texpdf-rust-smoke-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+  smoke_root="${RUNNER_TEMP:-/private/tmp}/firmladder-rust-smoke-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
   /bin/mkdir -p "$smoke_root"
-  /usr/bin/printf '%s\n' 'fn main() { println!("TEXPDF_RUST_CI_OK"); }' > "$smoke_root/main.rs"
-  "$rustup_bin" run "$toolchain" rustc "$smoke_root/main.rs" -o "$smoke_root/texpdf-rust-smoke"
-  "$smoke_root/texpdf-rust-smoke"
+  /usr/bin/printf '%s\n' 'fn main() { println!("FIRMLADDER_RUST_CI_OK"); }' > "$smoke_root/main.rs"
+  "$rustup_bin" run "$toolchain" rustc "$smoke_root/main.rs" -o "$smoke_root/firmladder-rust-smoke"
+  "$smoke_root/firmladder-rust-smoke"
   echo "RUST_QUICK_MODE=toolchain-smoke"
 fi

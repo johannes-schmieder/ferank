@@ -3,7 +3,7 @@ clear all
 set more off
 set varabbrev off
 
-display as result "TEXPDF_STATA_SMOKE_BEGIN"
+display as result "FIRMLADDER_STATA_SMOKE_BEGIN"
 display as text "stata_version=" c(stata_version)
 display as text "stata_edition=" c(edition_real)
 display as text "stata_os=" c(os)
@@ -14,4 +14,4 @@ mata:
 assert(sum((1, 2, 3)) == 6)
 end
 
-display as result "TEXPDF STATA MATA SMOKE PASS"
+display as result "FIRMLADDER STATA MATA SMOKE PASS"

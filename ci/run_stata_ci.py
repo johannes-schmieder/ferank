@@ -133,7 +133,7 @@ def main() -> int:
     parent = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir())).resolve()
     parent.mkdir(parents=True, exist_ok=True)
     run_root = Path(
-        tempfile.mkdtemp(prefix="texpdf-stata-ci-", dir=parent)
+        tempfile.mkdtemp(prefix="firmladder-stata-ci-", dir=parent)
     )
     staged_root = run_root / "repo"
     staged_root.mkdir()
@@ -234,7 +234,7 @@ def main() -> int:
         "--tested-sha",
         tested_sha,
         "--repository",
-        os.environ.get("GITHUB_REPOSITORY", "local/texpdf"),
+        os.environ.get("GITHUB_REPOSITORY", "local/firmladder"),
         "--ref",
         os.environ.get("GITHUB_REF", "local"),
         "--run-id",

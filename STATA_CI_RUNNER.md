@@ -1,6 +1,6 @@
 # Licensed Stata/Rust CI runner
 
-`texpdf` uses one private, repository-level GitHub Actions runner on the Mac
+`firmladder` uses one private, repository-level GitHub Actions runner on the Mac
 Studio. Workflow code executes as the logged-in `johannes` macOS account and
 therefore has the same practical authority as that account.
 
@@ -13,7 +13,7 @@ therefore has the same practical authority as that account.
 - Batch invocation: `stata-mp -q -b do FILE.do`.
 - Rust stable 1.97.1 with rustfmt and Clippy; installed pinned toolchains also
   include 1.81.0 and 1.85.1.
-- Apple clang/Xcode and TeX Live 2023 are installed.
+- Apple clang/Xcode is installed for native plugin builds.
 
 Stata can return shell status zero after a Stata-language error. CI therefore
 requires an explicit `stata.status` file and a profile-specific PASS marker.
@@ -49,14 +49,14 @@ change. Receipt paths are excluded from triggers and commits use `[skip ci]`.
 
 ## Runner installation and operation
 
-- Installation: `/Users/johannes/actions-runners/texpdf-stata`.
-- Runner name: `macstudio-stata-mp18-texpdf`.
-- Scope: private `johannes-schmieder/texpdf` repository only.
+- Installation: `/Users/johannes/actions-runners/firmladder-stata`.
+- Runner name: `macstudio-stata-mp18-firmladder`.
+- Scope: private `johannes-schmieder/firmladder` repository only.
 - Labels: `self-hosted`, `macOS`, `ARM64`, `stata`, `stata-mp`, `stata18`,
-  `texpdf`.
+  `firmladder`.
 - Work directory: `_work` under the installation.
 - LaunchAgent:
-  `/Users/johannes/Library/LaunchAgents/actions.runner.johannes-schmieder-texpdf.macstudio-stata-mp18-texpdf.plist`.
+  `/Users/johannes/Library/LaunchAgents/actions.runner.johannes-schmieder-firmladder.macstudio-stata-mp18-firmladder.plist`.
 
 Manage the service from the installation directory with `./svc.sh status`,
 `./svc.sh stop`, and `./svc.sh start`. The user must remain logged into the
@@ -67,12 +67,12 @@ The authoritative service check is:
 
 ```sh
 launchctl print \
-  "gui/$(id -u)/actions.runner.johannes-schmieder-texpdf.macstudio-stata-mp18-texpdf"
+  "gui/$(id -u)/actions.runner.johannes-schmieder-firmladder.macstudio-stata-mp18-firmladder"
 ```
 
 For an offline or stuck runner, inspect **Settings → Actions → Runners** and
 the bounded LaunchAgent stdout/stderr logs under
-`/Users/johannes/Library/Logs/actions.runner.johannes-schmieder-texpdf.macstudio-stata-mp18-texpdf/`.
+`/Users/johannes/Library/Logs/actions.runner.johannes-schmieder-firmladder.macstudio-stata-mp18-firmladder/`.
 
 To unregister, stop and uninstall the service, remove the runner in repository
 settings or use a fresh short-lived removal token, and then delete the
@@ -87,7 +87,7 @@ directory. Never store a token in this file or Git.
 - Artifacts are restricted to `.ci/stata/run/` and synthetic fixtures.
 - Home-directory content, credentials, license material, and confidential
   research data are never uploaded.
-- Package API, TeX backend, and platform support are intentionally undecided.
+- Package API, numerical backend, and platform support are intentionally undecided.
 
 ## Qualification record
 

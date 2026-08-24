@@ -21,7 +21,7 @@ on:
       - ".ci/stata/results/**"
 
 concurrency:
-  group: texpdf-mac-${{ github.repository }}
+  group: firmladder-mac-${{ github.repository }}
   cancel-in-progress: false
 
 permissions:
@@ -34,7 +34,7 @@ env:
 jobs:
   mac-ci:
     name: Mac Rust quick + Stata / ${{ inputs.profile || 'quick' }}
-    runs-on: [self-hosted, macOS, ARM64, stata-mp, texpdf]
+    runs-on: [self-hosted, macOS, ARM64, stata-mp, firmladder]
     timeout-minutes: 30
     env:
       STATA_BIN: /Applications/Stata/StataMP.app/Contents/MacOS/stata-mp
@@ -84,7 +84,7 @@ jobs:
     name: Publish exact-SHA receipt
     needs: mac-ci
     if: ${{ always() && needs.mac-ci.result != 'cancelled' }}
-    runs-on: [self-hosted, macOS, ARM64, stata-mp, texpdf]
+    runs-on: [self-hosted, macOS, ARM64, stata-mp, firmladder]
     timeout-minutes: 10
     permissions:
       contents: write
@@ -98,21 +98,21 @@ jobs:
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: stata-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/texpdf-ci-receipt
+          path: ${{ runner.temp }}/firmladder-ci-receipt
 
       - name: Validate receipt identity
         env:
           STATA_PROFILE: ${{ inputs.profile || 'quick' }}
         run: >-
           /usr/bin/python3 ci/check_stata_receipt.py
-          "$RUNNER_TEMP/texpdf-ci-receipt/receipt.json"
+          "$RUNNER_TEMP/firmladder-ci-receipt/receipt.json"
           --expect-tested-sha "$GITHUB_SHA"
           --expect-profile "$STATA_PROFILE"
 
       - name: Commit immutable receipt and guarded latest pointer
         shell: bash
         env:
-          RECEIPT: ${{ runner.temp }}/texpdf-ci-receipt/receipt.json
+          RECEIPT: ${{ runner.temp }}/firmladder-ci-receipt/receipt.json
         run: |
           set -euo pipefail
           branch="$GITHUB_REF_NAME"
@@ -131,7 +131,7 @@ jobs:
 
           for attempt in 1 2 3; do
             git fetch origin "$branch"
-            publish_tree="$RUNNER_TEMP/texpdf-publish-$attempt"
+            publish_tree="$RUNNER_TEMP/firmladder-publish-$attempt"
             git worktree add --detach "$publish_tree" "origin/$branch"
             cd "$publish_tree"
 
