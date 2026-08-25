@@ -11,13 +11,13 @@
       "suite": "ci/stata_smoke.do",
       "arguments": [],
       "timeout_seconds": 600,
-      "required_log_markers": ["FIRMLADDER STATA MATA SMOKE PASS"]
+      "required_log_markers": ["FERANK STATA MATA SMOKE PASS"]
     },
     "quick": {
       "suite": "ci/stata_smoke.do",
       "arguments": [],
       "timeout_seconds": 600,
-      "required_log_markers": ["FIRMLADDER STATA MATA SMOKE PASS"]
+      "required_log_markers": ["FERANK STATA MATA SMOKE PASS"]
     }
   },
   "stata_plus_files": []

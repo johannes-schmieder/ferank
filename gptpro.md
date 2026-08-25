@@ -9,14 +9,14 @@ The workflow is named **Licensed Stata and Rust CI**. A normal push to `main` or
 1. a licensed Stata/MP batch test; and
 2. a Rust quick test.
 
-At bootstrap, the Stata test is an infrastructure smoke test and the Rust test compiles and runs a synthetic program in a temporary directory. No `firmladder` package API or numerical backend has been chosen yet. When a `Cargo.toml` is later added, the Rust lane automatically changes to repository checks: `cargo fmt --check`, strict Clippy, and workspace tests.
+At bootstrap, the Stata test is an infrastructure smoke test and the Rust test compiles and runs a synthetic program in a temporary directory. The planned `ferank` API and numerical backends are specified in `PLAN.md`; neither has been implemented yet. When a `Cargo.toml` is later added, the Rust lane automatically changes to repository checks: `cargo fmt --check`, strict Clippy, and workspace tests.
 
 There is no self-hosted `pull_request` trigger and no redundant GitHub-hosted matrix on ordinary pushes.
 
 ## Available test machine
 
-- Runner: `macstudio-stata-mp18-firmladder`
-- Labels: `self-hosted`, `macOS`, `ARM64`, `stata`, `stata-mp`, `stata18`, `firmladder`
+- Runner: `macstudio-stata-mp18-ferank`
+- Labels: `self-hosted`, `macOS`, `ARM64`, `stata`, `stata-mp`, `stata18`, `ferank`
 - Hardware: Mac Studio `Mac14,14`, Apple M2 Ultra, arm64, 24 CPU cores, 192 GB RAM
 - Operating system: macOS 26.5.2
 - Licensed Stata: Stata/MP 18, bundle 18.0.130

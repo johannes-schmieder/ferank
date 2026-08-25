@@ -1,6 +1,6 @@
 # Licensed Stata/Rust CI runner
 
-`firmladder` uses one private, repository-level GitHub Actions runner on the Mac
+`ferank` uses one private, repository-level GitHub Actions runner on the Mac
 Studio. Workflow code executes as the logged-in `johannes` macOS account and
 therefore has the same practical authority as that account.
 
@@ -49,14 +49,14 @@ change. Receipt paths are excluded from triggers and commits use `[skip ci]`.
 
 ## Runner installation and operation
 
-- Installation: `/Users/johannes/actions-runners/firmladder-stata`.
-- Runner name: `macstudio-stata-mp18-firmladder`.
-- Scope: private `johannes-schmieder/firmladder` repository only.
+- Installation: `/Users/johannes/actions-runners/ferank-stata`.
+- Runner name: `macstudio-stata-mp18-ferank`.
+- Scope: private `johannes-schmieder/ferank` repository only.
 - Labels: `self-hosted`, `macOS`, `ARM64`, `stata`, `stata-mp`, `stata18`,
-  `firmladder`.
+  `ferank`.
 - Work directory: `_work` under the installation.
 - LaunchAgent:
-  `/Users/johannes/Library/LaunchAgents/actions.runner.johannes-schmieder-firmladder.macstudio-stata-mp18-firmladder.plist`.
+  `/Users/johannes/Library/LaunchAgents/actions.runner.johannes-schmieder-ferank.macstudio-stata-mp18-ferank.plist`.
 
 Manage the service from the installation directory with `./svc.sh status`,
 `./svc.sh stop`, and `./svc.sh start`. The user must remain logged into the
@@ -67,12 +67,12 @@ The authoritative service check is:
 
 ```sh
 launchctl print \
-  "gui/$(id -u)/actions.runner.johannes-schmieder-firmladder.macstudio-stata-mp18-firmladder"
+  "gui/$(id -u)/actions.runner.johannes-schmieder-ferank.macstudio-stata-mp18-ferank"
 ```
 
 For an offline or stuck runner, inspect **Settings → Actions → Runners** and
 the bounded LaunchAgent stdout/stderr logs under
-`/Users/johannes/Library/Logs/actions.runner.johannes-schmieder-firmladder.macstudio-stata-mp18-firmladder/`.
+`/Users/johannes/Library/Logs/actions.runner.johannes-schmieder-ferank.macstudio-stata-mp18-ferank/`.
 
 To unregister, stop and uninstall the service, remove the runner in repository
 settings or use a fresh short-lived removal token, and then delete the
@@ -87,7 +87,8 @@ directory. Never store a token in this file or Git.
 - Artifacts are restricted to `.ci/stata/run/` and synthetic fixtures.
 - Home-directory content, credentials, license material, and confidential
   research data are never uploaded.
-- Package API, numerical backend, and platform support are intentionally undecided.
+- The package API, numerical backends, and planned platform gates are defined in
+  `PLAN.md`; implementation has not begun.
 
 ## Qualification record
 
