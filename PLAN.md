@@ -1,1118 +1,478 @@
-# `firmladder` — Live Development Plan
+# `ferank` — Live Development Plan
 
-**Repository:** `johannes-schmieder/firmladder`  
-**Primary integration branch:** `main`  
-**Primary development environment:** ChatGPT Pro in the web interface  
-**Secondary development environment:** local Codex for testing, debugging, benchmarking, and refinement  
-**Initial target:** a clean, fast, reproducible Stata package for Sorkin-style revealed-preference firm ladders  
+**Repository:** `johannes-schmieder/ferank`
 
-This is the authoritative implementation roadmap and recovery document for the project. It should be updated whenever a substantive design decision is made, a milestone closes, a numerical experiment is retained or rejected, or the recommended next action changes.
+**Primary branch:** `main`
 
-Read this file together with:
+**Product:** an SSC-quality Stata package for firm rankings constructed from
+directed worker flows
 
-- `gptpro.md` for the exact-SHA licensed Stata/Rust CI workflow;
-- `STATA_CI_RUNNER.md` for the self-hosted Mac Studio environment and security boundary;
-- `.ci/stata/latest.json` and `.ci/stata/results/<full-sha>.json` for machine-readable qualification receipts.
+**Version 0.1 methods:** Sorkin and Bradley–Terry
 
----
-
-## 1. Product vision
-
-Create an SSC-quality Stata package that estimates and diagnoses firm ladders from directed worker flows. The first production estimator will implement the Sorkin-style revealed-preference fixed point on a directed employer-mobility graph. The package should be useful on very large matched employer–employee datasets, but remain transparent and trustworthy on small datasets.
-
-The package should make the distinction between three related objects explicit:
-
-1. **Flow-relevant revealed firm value** inferred from directed employer-to-employer moves;
-2. **Structural employer value** after additional offer-share, employment-share, destruction, reallocation, or nonemployment adjustments;
-3. **Wage, rent, and amenity decompositions** obtained by combining the firm ladder with wage fixed effects or a pairwise-choice model.
-
-Version 0.1 will estimate the first object only. Later versions may add the second and third, but must never relabel the flow fixed point as the full structural object without the required inputs and assumptions.
-
-### Core design principles
-
-- **Econometric definitions are explicit.** Flow construction, component selection, normalization, and weighting must be visible in command syntax and stored results.
-- **The numerical result is certified.** Final acceptance uses a residual against the original directed fixed-point equation, not only an iteration-difference stopping rule.
-- **Large-data work lives in Rust.** Stata handles syntax, sample marking, result presentation, frames, and postestimation; the Rust plugin handles graph construction and numerical work.
-- **Determinism is a feature.** Results must not depend on input row order, duplicate splitting, thread scheduling, or the number of threads, except for documented floating-point differences within strict gates.
-- **No hidden regularization.** Teleportation, ridge terms, flow smoothing, or component bridging are never applied silently.
-- **One source of truth.** The Rust core defines the production algorithm; a small independent reference implementation validates it on bounded test problems.
-- **Checkpoint frequently.** Web development should use small, recoverable commits and exact-SHA CI receipts.
+This is the authoritative implementation roadmap and recovery document. Read
+it with `gptpro.md`, `STATA_CI_RUNNER.md`, and the exact-SHA receipts under
+`.ci/stata/results/`. Update it when a substantive design decision changes, a
+milestone closes, or the recommended next action changes.
 
 ---
 
-## 2. Mathematical target
+## 1. Product boundary
 
-### 2.1 Directed flow notation
+`ferank` constructs comparable firm scores and rankings from observed directed
+worker moves. Version 0.1 supports two estimators over one canonical flow graph:
 
-Let `j` denote the origin firm and `i` the destination firm. Define
+1. the Sorkin revealed-preference fixed point; and
+2. a Bradley–Terry pairwise-choice likelihood in which the destination firm
+   wins each observed origin-to-destination comparison.
 
-\[
-M_{ij} = \text{weighted flow from firm }j\text{ to firm }i,
-\]
+Both estimators accept either a prepared directed edge list or a simple
+worker–firm period panel. Both return normalized scores, ranks, percentiles,
+graph coverage, and method-specific fit or convergence diagnostics.
 
-with positive finite flow weights. Let total outflow from firm `j` be
+Version 0.1 is point-estimation software. It does not estimate structural
+employer values, offer shares, wage fixed effects, rents, amenities, standard
+errors, bootstrap intervals, or influence functions. Those topics are outside
+this roadmap rather than deferred modules.
 
-\[
-s_j = \sum_i M_{ij},
-\qquad
-S = \operatorname{diag}(s_1,\ldots,s_J).
-\]
+### Design rules
 
-The Sorkin-style flow value `q` satisfies
-
-\[
-S^{-1} M q = q,
-\]
-
-or equivalently
-
-\[
-M q = S q.
-\]
-
-Define the column-stochastic transition operator
-
-\[
-P = M S^{-1}.
-\]
-
-If `π` is its stationary vector,
-
-\[
-P\pi = \pi,
-\qquad
-\sum_j \pi_j = 1,
-\]
-
-then
-
-\[
-q = S^{-1}\pi
-\]
-
-solves the revealed-value equation. The reported log ladder is
-
-\[
-v_j = \log q_j,
-\]
-
-followed by an explicit normalization.
-
-### 2.2 Identification domain
-
-The relative value vector is identified on a strongly connected component of the positive-flow directed graph. Version 0.1 will:
-
-1. canonicalize positive directed edges;
-2. compute all strongly connected components;
-3. select an estimation component under an explicit rule;
-4. report all component statistics and the retained share of firms and flows;
-5. estimate only where the Perron vector is uniquely defined up to scale.
-
-The provisional default is the largest strongly connected component by number of firms, with ties broken by retained directed flow and then by a deterministic firm-ID rule. This default must be confirmed against the intended empirical convention before the public API is frozen. Options should permit selecting a numbered component or estimating each qualifying component separately.
-
-### 2.3 Lazy iteration without changing the estimand
-
-Directed chains may be periodic or nearly periodic. The production power iteration will use
-
-\[
-P_\lambda = (1-\lambda)I + \lambda P,
-\qquad 0<\lambda\leq 1,
-\]
-
-with a provisional default `λ = 0.5`. `P_λ` has the same stationary vector as `P`, while damping oscillation. Final convergence must be certified against `Pπ = π`, not only `P_λπ = π`.
-
-Google-style teleportation changes the estimand and will not be used by default. Any future regularized method must have a separate method name and explicit documentation.
-
-### 2.4 Normalizations
-
-The underlying `q` is scale invariant. Version 0.1 should support at least:
-
-- `normalize(mean)`: unweighted mean of `v_j` is zero;
-- `normalize(weighted)`: weighted mean of `v_j` is zero, using a supplied firm weight;
-- `normalize(reference)`: a named reference firm has value zero;
-- `normalize(stationary)`: retain `sum(π)=1` and report the implied scale of `q`.
-
-Ranking and percentiles are invariant to additive normalization of `v`. The normalization used must be stored in `e()` and in the result frame metadata.
+- Flow orientation and construction are explicit and stored with every result.
+- The same canonical directed flow matrix feeds both methods.
+- Successful numerical results carry a method-specific certificate against the
+  original estimating equation or likelihood first-order condition.
+- Component selection, filtering, normalization, and weighting are never
+  hidden.
+- Input order, duplicate edge splitting, and thread scheduling must not change
+  the result outside strict documented floating-point gates.
+- Rust owns graph and numerical work; Stata owns syntax, sample marking,
+  frames, stored results, and user-visible errors.
+- The production Rust implementations are checked against independent bounded
+  reference solvers.
 
 ---
 
-## 3. Version scope
+## 2. Canonical flow input
 
-## 3.1 Version 0.1: exact directed-flow ladder
+Let `j` be the origin firm and `i` the destination firm. Define
 
-Version 0.1 is deliberately narrow and production-oriented. It will include:
+\[
+M_{ij}=\text{weighted number of observed moves from }j\text{ to }i.
+\]
 
-- estimation from an already prepared directed edge list;
-- positive integer or fractional flow weights;
-- deterministic duplicate aggregation;
-- directed strongly connected components;
-- Sorkin fixed-point estimation using a sparse lazy power method;
-- rigorous fixed-point residual certification;
-- normalization, ranking, and percentiles;
-- a firm-level result frame;
-- comprehensive graph and convergence diagnostics;
-- a small independent Mata or dense Rust reference engine for validation;
-- a self-contained Rust plugin binary for each supported platform;
-- complete Stata help, examples, tests, and package metadata.
+All marked inputs are converted to a canonical table of positive directed
+edges `(origin, destination, flow)`. External firm IDs are mapped to stable
+compact indices and mapped back in the result frame.
 
-Version 0.1 will **not** automatically infer economically endogenous moves from raw histories, estimate offer shares, recover full structural firm values, estimate wage fixed effects, or impose a Bradley–Terry likelihood.
-
-## 3.2 Version 0.2: flow construction and subgroup workflows
-
-Potential version 0.2 additions:
-
-- `firmladder_build` for constructing directed flow tables from worker–firm spells;
-- explicit handling of gaps, recalls, concurrent jobs, dominant jobs, firm-ID changes, and nonemployment;
-- probability or fractional weighting of moves as endogenous/revealed-preference transitions;
-- subgroup and period-specific ladders;
-- split-sample stability diagnostics;
-- bootstrap orchestration and replication batching;
-- optional Arnoldi fallback for exceptionally slow mixing.
-
-## 3.3 Later extensions
-
-Later extensions may include:
-
-- structural employer values using offer shares, employment shares, destruction, reallocation, and nonemployment flows;
-- an alternative Bradley–Terry pairwise-move estimator;
-- CMG-based wage fixed effects and rent/amenity decompositions;
-- analytical influence functions for flows or firms;
-- CMG-preconditioned nonsymmetric sensitivity systems where mathematically justified;
-- cached multi-period or subgroup workflows sharing graph indexing.
-
-These extensions must remain separate methods or postestimation modules so that the exact Sorkin fixed point remains reproducible and clearly labeled.
-
----
-
-## 4. Provisional Stata interface
-
-The public API should feel like a standard Stata estimation command and leave the user’s edge data unchanged by default.
-
-### 4.1 Primary edge-list command
+### 2.1 Prepared edge-list mode
 
 Provisional syntax:
 
 ```stata
-firmladder origin destination [if] [in], flow(varname) [options]
+ferank origin destination [if] [in], method(sorkin|bradleyterry) ///
+    [flow(varname) options]
 ```
 
-For one observation per move, `flow()` may be omitted and each row receives unit weight. Fractional flows must be supported because estimated move-type probabilities may be economically appropriate weights.
+- Each row has unit flow when `flow()` is omitted.
+- `flow()` accepts positive finite integer or fractional weights.
+- Duplicate directed pairs are aggregated deterministically with compensated
+  summation.
+- Missing firm IDs, negative weights, and nonfinite weights are errors.
+- Zero-weight rows and self-moves carry no ranking information; they are
+  excluded and reported.
+- `minflow()` is applied to canonical edge totals before component selection.
 
-Provisional options:
+### 2.2 Worker–firm period-panel mode
+
+Provisional syntax:
+
+```stata
+ferank firm [if] [in], worker(workervar) time(timevar) ///
+    method(sorkin|bradleyterry) [maxgap(#) options]
+```
+
+Version 0.1 deliberately supports one narrow panel contract:
+
+- one nonconcurrent firm assignment per worker and time value;
+- duplicate worker–time observations are an error;
+- observations are ordered internally without changing the caller's data;
+- repeated observations at the same firm form one continuing employment run;
+- a move is recorded only when two consecutive valid worker observations have
+  different nonmissing firms and their time difference is at most `maxgap()`;
+- `maxgap(1)` is the default;
+- an observed missing firm always breaks the transition chain, even when a
+  larger `maxgap()` is requested;
+- same-firm transitions produce no edge;
+- each constructed move receives unit weight in version 0.1.
+
+Users needing concurrent-job rules, dominant-job selection, spell start/end
+logic, nonemployment states, recalls, or fractional move weights must prepare
+an edge list outside `ferank`. The command reports panel rows, workers, valid
+moves, gap breaks, missing-firm breaks, and same-firm continuations.
+
+### 2.3 Identification components
+
+Both methods require a strongly connected positive-flow directed comparison
+graph for a unique finite score vector up to an additive normalization.
+`ferank` therefore:
+
+1. canonicalizes edges;
+2. computes all directed strongly connected components;
+3. orders components deterministically;
+4. selects the requested estimation component; and
+5. reports retained firms, edges, and flow.
+
+The default `component(largest)` chooses the component with the most firms,
+breaking ties by retained flow and then the smallest canonical firm ID.
+`component(#)` selects a reported component. `component(all)` estimates every
+qualifying component separately and clearly marks scores and ranks as
+component-specific and not comparable across components. No component is
+bridged or regularized silently.
+
+---
+
+## 3. Ranking methods
+
+### 3.1 Sorkin
+
+Let
+
+\[
+s_j=\sum_i M_{ij},\qquad S=\operatorname{diag}(s_1,\ldots,s_J).
+\]
+
+The Sorkin flow value `q` satisfies
+
+\[
+Mq=Sq.
+\]
+
+With the column-stochastic transition matrix `P=MS^{-1}`, its stationary mass
+`pi` satisfies
+
+\[
+P\pi=\pi,\qquad \mathbf{1}'\pi=1,
+\]
+
+and `q=S^{-1}pi`. The reported method score is
+
+\[
+v_j=\log q_j
+\]
+
+after the requested additive normalization.
+
+The production solver uses deterministic sparse power iteration on
+
+\[
+P_\lambda=(1-\lambda)I+\lambda P,
+\]
+
+with default `lazy(0.5)`. Laziness preserves the estimand while controlling
+periodicity. Success requires an explicit residual against `P pi = pi`, not
+only a small iteration difference. Teleportation, ridge terms, smoothing, and
+component bridging are not allowed.
+
+Required Sorkin diagnostics include iterations, damping, maximum and L1
+fixed-point residuals, alternative-start agreement in validation mode, phase
+timing, and stationary-mass range.
+
+### 3.2 Bradley–Terry
+
+A move from `j` to `i` is a win for `i`. For each unordered compared pair, the
+log-likelihood is
+
+\[
+\ell(\theta)=\sum_{i<j}\left[
+M_{ij}\log \sigma(\theta_i-\theta_j)+
+M_{ji}\log \sigma(\theta_j-\theta_i)
+\right],
+\]
+
+where `sigma(x)=1/(1+exp(-x))`. Higher `theta` means the firm wins more revealed
+preference comparisons, conditional on the compared pair.
+
+The production solver uses stable Newton/IRLS with:
+
+- overflow-safe logistic and log-likelihood evaluation;
+- a mean-zero constrained score vector;
+- deterministic sparse gradient and Laplacian-Hessian assembly;
+- an ascent-preserving line search;
+- a dense direct solve for bounded systems;
+- PCG for large Newton systems, preconditioned by the audited CMG core; and
+- acceptance only when the constrained gradient/KKT residual and likelihood
+  change satisfy their gates.
+
+The CMG implementation will be internalized from the tracked Rust source at
+`johannes-schmieder/vckss` commit
+`5f6e3d4da84f638e866baca2c0c7707205d2182b`, path
+`rust/crates/vckss-core/src/cmg.rs`, Git blob
+`0bc4dfc8da7e7d8cc5de2389ade69280b0dc52a6`, SHA-256
+`54571c61a85a4fb74f090bb93f41489ed225f4a7784be01f03b697656b0d053a`.
+Only that tracked blob is a source; uncommitted sibling-worktree changes are
+not. The copy must retain GPL-3.0-only licensing, notices, and a provenance
+manifest, and must be adapted behind a narrow `ferank` Laplacian-solve API.
+
+Required Bradley–Terry diagnostics include log-likelihood, iterations, line
+search steps, constrained gradient norm, Newton-system residual, CMG route,
+and phase timing. Strong connectivity is checked before solving so a
+separation-driven infinite maximum is never reported as convergence.
+
+### 3.3 Scores, normalization, and ranks
+
+The common `score` column contains `log(q)` for Sorkin and `theta` for
+Bradley–Terry. The default `normalize(mean)` sets the unweighted component mean
+score to zero. Also support:
+
+- `normalize(weighted)` with `normweight()` supplied at firm level; and
+- `normalize(reference)` with `reference()`.
+
+Higher scores always mean higher rank. Equal scores receive deterministic
+midranks and identical percentiles; firm ID orders display rows but never
+breaks an econometric tie. Rank and percentile are computed within the
+estimation component.
+
+---
+
+## 4. Stata result contract
+
+The single public command is `ferank`; `method()` is required and has no
+default. Shared provisional options are:
 
 ```text
-method(sorkin)
 component(largest | # | all)
 normalize(mean | weighted | reference)
 normweight(varname)
 reference(value)
-lazy(#)
+minflow(#)
 tolerance(#)
 maxiter(#)
-minflow(#)
-minoutflow(#)
 threads(#)
-engine(plugin | mata)
+engine(plugin | reference)
 frame(name)
 replace
-generate(prefix)
-saving(filename)
 verbose
 ```
 
-Exact syntax should be frozen only after prototype use on realistic data.
+`lazy()` is Sorkin-specific. The reference engine is bounded and intended for
+validation, not large-data fallback.
 
-### 4.2 Output frame
-
-By default the command should create a named firm-level frame rather than attempting to merge firm results into an edge-level dataset. Proposed columns:
+The command leaves the caller's data unchanged and creates a firm-level result
+frame with at least:
 
 ```text
 firm_id
+method
 component_id
 in_estimation_component
-revealed_value_q
-log_revealed_value
-stationary_mass
+score
 rank
 percentile
 inflow
 outflow
 in_degree
 out_degree
-fixed_point_residual
 ```
 
-Optional columns may include user-supplied firm weights, normalization offsets, and flags for firms excluded by thresholds.
+Sorkin additionally returns `revealed_value_q`, `stationary_mass`, and the
+firm-level fixed-point residual. Method-specific iteration and fit information
+lives in `e()` rather than being forced into meaningless common columns.
 
-### 4.3 Stored estimation results
+The command is `eclass` and stores `e(cmd)=ferank`, method, input mode, marked
+rows, raw and canonical edges, firms, component counts and rule, retained flow,
+normalization, convergence certificate, thread route, backend version, result
+frame, and phase timings. Initial postestimation is limited to
+`estat components` and `estat convergence`. There is no `predict` command in
+version 0.1.
 
-The command should be `eclass` and store at least:
-
-```text
-e(cmd)                 firmladder
-e(method)              sorkin
-e(engine)              plugin or mata
-e(N_rows)              marked input rows
-e(N_edges_raw)         positive marked directed rows
-e(N_edges)             canonical positive directed pairs
-e(N_firms_raw)         unique firms before component restriction
-e(N_components)        directed strongly connected components
-e(N_firms_est)         firms in estimation component
-e(flow_total)          total positive flow
-e(flow_est)            flow retained in estimation component
-e(flow_share_est)      retained flow share
-e(component_rule)      selection rule
-e(component_id)        selected component identifier
-e(iterations)          accepted iterations
-e(converged)           convergence flag
-e(residual_max)        maximum original-equation scaled residual
-e(residual_l1)         L1 fixed-point residual
-e(tolerance)           requested tolerance
-e(lazy)                damping parameter
-e(normalization)       normalization rule
-e(normalization_shift) applied log-value shift
-e(threads)             actual thread count
-e(plugin_version)      backend version
-e(runtime_total)
-e(runtime_graph)
-e(runtime_scc)
-e(runtime_solve)
-```
-
-The result frame name and any saved output path must also be stored.
-
-### 4.4 Postestimation
-
-Initial postestimation should include:
-
-- `estat components`: component sizes, flow shares, and selection rule;
-- `estat convergence`: residual, iterations, damping, and timing;
-- `estat stability`: optional rerun from alternative starting vectors or split flows;
-- `predict` only if a clear observation-level prediction is defined; do not add a meaningless `predict` merely to mimic regression commands.
-
-### 4.5 Flow builder
-
-`firmladder_build` should be a separate command so that substantive transition definitions are not hidden inside the estimator. Provisional syntax:
-
-```stata
-firmladder_build firmvar, worker(workervar) time(timevar) [options]
-```
-
-Potential explicit options include:
-
-```text
-gap(#)
-dominantjob(...)
-concurrent(...)
-recalls(...)
-nonemployment(...)
-endogweight(varname)
-minimumtenure(#)
-from(varname)
-to(varname)
-flow(varname)
-frame(name)
-```
-
-This module should be implemented only after the edge-list estimator is stable.
+Recognized failures use stable return codes and must not leave a partial result
+frame or modified caller data.
 
 ---
 
-## 5. Numerical architecture
+## 5. Numerical and plugin architecture
 
-## 5.1 Rust workspace
-
-Proposed workspace layout:
+The planned Rust workspace is:
 
 ```text
-Cargo.toml
-rust-toolchain.toml
 crates/
-  firmladder-core/
-    src/
-      lib.rs
-      error.rs
-      edge.rs
-      graph.rs
-      components.rs
-      stationary.rs
-      normalization.rs
-      diagnostics.rs
-      reference.rs
-  firmladder-plugin/
-    src/
-      lib.rs
-      stata_api.rs
-      dispatch.rs
-      io.rs
-  firmladder-cli/              # optional benchmark/debug binary
-    src/main.rs
+  ferank-core/
+  ferank-plugin/
+  ferank-cli/        # bounded oracle and benchmark driver
 ```
 
-The core crate must be independent of Stata and testable from ordinary Rust. The plugin crate should be a thin translation layer around the core.
+`ferank-core` owns:
 
-### Core modules
+- checked edge and panel-move ingestion;
+- stable ID compression and duplicate aggregation;
+- incoming and outgoing sparse graph layouts;
+- iterative directed SCC decomposition;
+- shared component selection and ranking utilities;
+- the certified Sorkin solver;
+- the certified Bradley–Terry solver and CMG adapter;
+- normalization and deterministic midranks; and
+- machine-readable diagnostics.
 
-- `edge.rs`: checked endpoints, positive finite flow weights, deterministic ordering;
-- `graph.rs`: canonicalization, duplicate aggregation, outflows, incoming adjacency;
-- `components.rs`: Tarjan or Kosaraju SCC decomposition with deterministic labels;
-- `stationary.rs`: lazy sparse power iteration and residual certification;
-- `normalization.rs`: log values, weights, reference normalization, ranks;
-- `diagnostics.rs`: component, degree, flow, convergence, and timing reports;
-- `reference.rs`: bounded dense oracle used only for tests and diagnostics.
+Destination-owned incoming rows are the primary Sorkin layout, allowing each
+`P*pi` destination to be computed without floating-point atomics. The
+Bradley–Terry layer stores canonical unordered pairs and directed win counts.
+Graph construction reuses compact indices and retained flow totals across both
+methods.
 
-## 5.2 Sparse storage
+`ferank-plugin` is a thin, versioned Stata SPI boundary. It reads marked
+numeric variables directly, contains panics before the C ABI, validates all
+buffer dimensions and operation codes, and maps bounded backend errors to
+stable Stata return codes. String firm IDs are encoded in Stata with a mapping
+preserved in the result frame.
 
-The production stationary update should own rows by destination firm. For each destination `i`, store its incoming origins `j` and flows `M_ij`. Then
+Stata owns parsing, `marksample`, frames, value-label preservation, `e()`
+results, display, help, and transactional rollback. CSV and temporary-file
+exchange are not used in the normal path.
 
-\[
-(P\pi)_i = \sum_j \frac{M_{ij}}{s_j}\pi_j
-\]
-
-can be computed independently for each destination without atomics. This supports deterministic row-parallel evaluation.
-
-Recommended retained layout:
-
-```text
-row_offsets: Vec<usize> or checked compact offsets where justified
-origins:     Vec<u32> when firm count <= u32::MAX
-flows:       Vec<f64>
-outflow:     Vec<f64>
-```
-
-Input firm IDs remain Stata values. The Rust core remaps them to compact internal indices and preserves a deterministic inverse map.
-
-## 5.3 Canonicalization
-
-Graph construction must:
-
-1. validate marked observations and weights;
-2. reject or explicitly drop missing IDs and nonpositive/nonfinite flows;
-3. map external IDs to compact internal IDs;
-4. sort directed pairs deterministically;
-5. aggregate duplicates using compensated summation;
-6. report dropped zero/self flow and duplicate compression;
-7. build both the SCC adjacency and incoming numerical adjacency without unnecessary retained duplication.
-
-Self-loops contain no pairwise ranking information. The provisional behavior is to remove them from the ranking graph after reporting their total weight. Laziness should be introduced algorithmically, not by silently treating observed same-firm rows as a model parameter.
-
-## 5.4 Strongly connected components
-
-The SCC implementation must be iterative or otherwise safe for very deep graphs. It should return:
-
-- component label for each firm;
-- firm count, edge count, and flow totals by component;
-- deterministic component ordering;
-- selected component under the requested rule;
-- diagnostic flags for singleton components and zero-outflow firms.
-
-Tests must include long chains, directed cycles, bow-tie graphs, multiple equal-size components, isolated firms, and permutation-invariant labels after canonical relabeling.
-
-## 5.5 Stationary solver
-
-Version 0.1’s primary solver will be deterministic lazy power iteration.
-
-For each iteration:
-
-1. compute `Pπ` with destination-owned sparse rows;
-2. form `(1-λ)π + λPπ`;
-3. normalize to positive unit mass;
-4. compute an iteration-change norm;
-5. periodically compute the original fixed-point residual;
-6. accept only when the original residual satisfies the requested tolerance.
-
-Recommended numerical safeguards:
-
-- compensated row summation for high-degree destinations;
-- stable normalization when masses span many orders of magnitude;
-- explicit checks for NaN, infinity, negative mass, or vanished total mass;
-- deterministic fixed-chunk reductions if parallel reductions are used;
-- iteration-limit and stagnation diagnostics;
-- final rerun of the original operator for certification;
-- no success based solely on `|π_{k+1}-π_k|`.
-
-Potential later fallback:
-
-- restarted Arnoldi for slow-mixing cases;
-- Anderson acceleration if it preserves positivity and is demonstrably robust;
-- both require separate retain/reject gates and independent residual checks.
-
-## 5.6 Reference oracle
-
-Small systems require an independent oracle that does not share the production iteration code. Options include:
-
-- solve an augmented dense stationary system with Gaussian elimination;
-- compute a dense eigenvector through a bounded test-only dependency;
-- implement a Mata dense reference for Stata integration tests.
-
-The oracle should be limited to small graphs and never become the large-data fallback by accident.
-
-## 5.7 Parallelism
-
-Parallelism is optional and must preserve deterministic results within a strict numerical gate.
-
-Likely parallel targets:
-
-- destination-owned sparse stationary updates;
-- large edge sorting/canonicalization;
-- independent components when `component(all)` is requested;
-- bootstrap or subgroup batches;
-- rank/percentile preparation where beneficial.
-
-Avoid atomics for floating-point accumulation. Do not parallelize tiny graphs. Expose `threads()` and report the actual route.
+The package and internalized CMG source are GPL-3.0-only. Public release
+requires the full license, corresponding source, notices, provenance review,
+and a reviewed Stata SPI redistribution boundary.
 
 ---
 
-## 6. Stata plugin architecture
+## 6. Testing and qualification
 
-## 6.1 Boundary responsibilities
+### Independent oracles
 
-Stata should own:
+- A bounded dense stationary-system oracle validates Sorkin.
+- A separately implemented dense constrained Newton solver validates
+  Bradley–Terry.
+- Shared hand-worked asymmetric fixtures pin flow orientation and the rule that
+  destinations are Bradley–Terry winners.
+- Oracle code must not call production graph assembly or production solvers.
 
-- command parsing and validation;
-- `marksample`, `if`, and `in` handling;
-- temporary variables and frames;
-- user-visible warnings and errors;
-- `e()` results, help, and postestimation;
-- package installation and plugin selection.
+### Required properties
 
-Rust should own:
+Both methods must test:
 
-- ID remapping;
-- edge aggregation;
-- directed graph construction;
-- SCC computation;
-- fixed-point solution;
-- normalization primitives and ranks;
-- detailed machine-readable diagnostics.
+- edge and panel row permutation invariance;
+- duplicate-edge splitting invariance;
+- firm-ID relabeling invariance;
+- unit and fractional prepared flows;
+- missing, zero, negative, and extreme flow handling;
+- self-move accounting;
+- directed cycles, disconnected components, weak links, and equal-size
+  component ties;
+- repeatability across runs and strict one-thread/multi-thread agreement;
+- transactional Stata failure and unchanged caller data; and
+- exact agreement with the independent oracle on bounded fixtures.
 
-## 6.2 Data transfer
+Panel tests additionally cover repeated same-firm periods, actual moves,
+duplicate worker-time errors, missing-firm breaks, default adjacent periods,
+and explicit `maxgap()` behavior.
 
-The initial plugin API should accept numeric origin and destination IDs plus an optional numeric flow variable. String IDs can be encoded in Stata while preserving a mapping in the output frame.
+Sorkin tests cover periodic chains, nearly reducible graphs, alternative
+starts, stagnation, and original-equation residuals. Bradley–Terry tests cover
+balanced and one-sided comparisons, separation rejection, stable extreme
+logits, monotone line search, Newton-system certification, and CMG-versus-dense
+agreement.
 
-The plugin should read marked Stata observations directly through the Stata plugin interface and write results into preallocated variables or a compact transfer buffer. Avoid CSV or temporary-file exchange in the normal path.
+### Performance gates
 
-A versioned request/response contract should include:
+Use small CI fixtures, a manual medium graph near 100,000 firms and 1,000,000
+canonical edges, and a manual large graph near 1,000,000 firms and 10,000,000
+edges. Record ingestion, canonicalization, SCC, solve, ranking, peak RSS,
+iterations, and 1/2/4/8/16/24-thread scaling. Retain an optimization only after
+numerical equivalence, memory, and worst-case timing gates pass.
 
-```text
-ABI version
-operation code
-marked observation range
-variable indices
-solver options
-thread count
-result variable indices
-diagnostic scalar slots
-error code and bounded error message
-```
+### CI evidence
 
-Every failure crossing the FFI boundary must become a stable Stata return code and explanatory message. Rust panics must never unwind across the C ABI.
+Every accepted checkpoint requires an immutable receipt whose `tested_sha`
+equals the source commit and whose overall, Stata, and Rust statuses are all
+`success`. `.ci/stata/latest.json` is only a pointer. Ordinary pushes remain
+bounded; full, benchmark, and release qualification are explicit profiles.
 
-## 6.3 Standalone binaries
-
-The distribution target is one self-contained plugin binary per supported Stata platform, with no separately installed Rust runtime or package dependencies.
-
-Initial development platform:
-
-- macOS arm64, Stata/MP 18 on the Mac Studio runner.
-
-Public release targets should include, at minimum:
-
-- macOS arm64;
-- macOS x86_64 if supported by intended users;
-- Windows x86_64;
-- Linux x86_64.
-
-A platform is not declared supported until the plugin loads in Stata and passes an integration smoke test on that platform. Cross-compilation alone is insufficient.
+No platform is advertised until a self-contained plugin loads and passes the
+same Stata numerical fixtures there. Development begins with licensed Stata/MP
+18 on macOS arm64; Windows x86_64 and Linux x86_64 are release gates.
 
 ---
 
-## 7. CMG relationship
+## 7. Milestones
 
-The Sorkin fixed point is a directed, nonsymmetric eigenproblem. The existing symmetric CMG-PCG solver must **not** be forced into the version 0.1 ranking engine.
+### M0. Rename and specification
 
-CMG is nevertheless highly relevant to later modules:
+- [x] Licensed Stata/Rust CI bootstrap.
+- [x] Rename repository, runner, and project identity to `ferank`.
+- [x] Freeze the roadmap around Sorkin and Bradley–Terry flow rankings.
+- [ ] Add README, STATUS, GPL-3.0-only license, toolchain pin, and package
+  skeleton.
 
-### 7.1 Wage fixed effects
+**Gate:** renamed infrastructure publishes an exact-green receipt containing
+the `ferank` repository, runner, and smoke marker.
 
-A worker–firm AKM stage has a weighted bipartite Laplacian normal matrix. CMG can estimate firm wage effects on the same sample and support comparisons among:
+### M1. Shared graph and dense oracles
 
-- revealed firm value;
-- firm wage premiums;
-- implied nonpay value;
-- rent and compensating-differential components.
+- [ ] Pin the mathematical orientation and panel-to-edge contract in methods
+  documentation.
+- [ ] Implement both independent dense oracles and hand-worked fixtures.
+- [ ] Implement deterministic edge/panel ingestion, ID compression, SCCs, and
+  component diagnostics.
 
-### 7.2 Bradley–Terry alternative
+**Gate:** adversarial graph and panel fixtures pass both oracles and shared
+canonicalization properties.
 
-For pairwise flows, a Bradley–Terry likelihood has Hessian
+### M2. Certified Sorkin method
 
-\[
-H(\theta)
-= \sum_{i<j} n_{ij}p_{ij}(1-p_{ij})
-(e_i-e_j)(e_i-e_j)',
-\]
+- [ ] Implement sparse lazy iteration, original-equation residuals,
+  normalization, ranks, and diagnostics.
+- [ ] Match the dense oracle and pass medium synthetic graphs.
 
-which is a weighted graph Laplacian. CMG is therefore a natural Newton/IRLS backend for a future `method(bradleyterry)`.
+### M3. Certified Bradley–Terry method
 
-### 7.3 Sensitivity systems
+- [ ] Internalize the pinned CMG source with provenance and license notices.
+- [ ] Implement dense and CMG-preconditioned Newton/IRLS routes, line search,
+  separation checks, and KKT certification.
+- [ ] Match the dense oracle and pass medium synthetic graphs.
 
-Influence calculations around the directed fixed point produce nonsymmetric constrained systems. An undirected symmetrized flow Laplacian may eventually serve as a CMG preconditioner for GMRES, but only after theoretical and numerical validation.
+### M4. Stata command and plugin
 
-### 7.4 Licensing
+- [ ] Implement both syntax branches, the versioned ABI, transactional result
+  frame, `eclass` results, and two `estat` commands.
+- [ ] Execute all help examples and cross-language fixtures in licensed Stata.
 
-Because planned later modules may link the GPL-3.0-only CMG crate, the provisional package license is **GPL-3.0-only**. The complete license text must be included before public release. Any CMG dependency must be pinned to an audited commit and its provenance recorded.
+### M5. Performance and robustness
 
----
+- [ ] Qualify deterministic parallel routes, weak-link behavior, large graphs,
+  memory bounds, and panel ingestion scale.
+- [ ] Document interpretation differences between the two flow scores without
+  introducing non-flow estimands.
 
-## 8. Testing strategy
+### M6. Cross-platform release
 
-## 8.1 Rust unit tests
+- [ ] Qualify macOS arm64, Windows x86_64, and Linux x86_64 plugin artifacts in
+  licensed Stata.
+- [ ] Complete packaging, checksums, license/provenance review, help audit, and
+  SSC-style installation metadata.
 
-Required graph tests:
-
-- valid and invalid endpoints;
-- missing, zero, negative, NaN, and infinite flows;
-- deterministic ID remapping;
-- duplicate splitting and row permutation invariance;
-- scale invariance of all flows;
-- self-loop accounting;
-- exact outflow and incoming-row assembly;
-- long paths without recursion overflow.
-
-Required SCC tests:
-
-- one directed cycle;
-- multiple disconnected cycles;
-- bow-tie and source/sink components;
-- singleton and isolated firms;
-- equal-size tie-breaking;
-- invariance under edge permutation and ID relabeling.
-
-Required solver tests:
-
-- known stationary distributions;
-- asymmetric two- and three-firm examples;
-- periodic cycles with lazy iteration;
-- nearly decomposable graphs with weak directed links;
-- extreme but finite weights;
-- alternative starting vectors;
-- final original-equation residual;
-- iteration-limit and stagnation errors;
-- one-thread versus multi-thread numerical agreement;
-- repeatability across runs.
-
-Required normalization tests:
-
-- arithmetic-mean zero;
-- weighted-mean zero;
-- reference-firm zero;
-- invariant ranks and percentiles;
-- deterministic tie handling.
-
-## 8.2 Cross-language golden fixtures
-
-Create small synthetic fixtures checked into `tests/fixtures/` containing:
-
-```text
-edges.csv or .dta
-dense_reference.json
-expected_components.json
-expected_ladder.json
-```
-
-The same fixtures must be consumed by Rust tests and Stata tests. Expected values should come from an independent oracle and include tolerances.
-
-## 8.3 Stata integration tests
-
-Required Stata tests:
-
-- command discovery and plugin loading;
-- `if` and `in` behavior;
-- missing-value handling;
-- unit and fractional flows;
-- current data preserved unless explicitly modified;
-- result frame creation and replacement semantics;
-- exact `e()` metadata;
-- stable return codes for invalid input;
-- equality to the Mata/dense oracle on small examples;
-- permutation and duplicate-splitting invariance;
-- help-file examples execute successfully;
-- frames and value labels survive expected workflows;
-- plugin and reference engines agree within tolerance.
-
-## 8.4 Econometric validation
-
-Before release, add simulation tests that:
-
-1. choose an irreducible transition matrix `P` and outflow vector `s`;
-2. compute the known stationary mass `π` and target `q = S^{-1}π`;
-3. generate exact or sampled directed flows;
-4. recover the normalized ladder;
-5. document finite-sample rank and level error.
-
-Additional validation should examine:
-
-- sensitivity to minimum-flow thresholds;
-- retained flow share under SCC restriction;
-- split-sample rank correlations;
-- sparse weak-link identification;
-- subgroup ladders with different connected sets;
-- interpretation when the largest SCC excludes economically important firms.
-
-## 8.5 Performance tests
-
-Benchmark tiers:
-
-| Tier | Firms | Canonical directed edges | Purpose |
-|---|---:|---:|---|
-| Small | 1,000 | 10,000 | fast CI and reference comparison |
-| Medium | 100,000 | 1,000,000 | ordinary performance qualification |
-| Large | 1,000,000 | 10,000,000+ | manual high-memory qualification |
-
-Record separately:
-
-- input scan and ID remapping;
-- duplicate aggregation;
-- SCC construction;
-- selected graph size;
-- iteration count;
-- stationary solve time;
-- normalization/ranking time;
-- peak RSS and retained bytes;
-- one-, two-, four-, eight-, sixteen-, and twenty-four-thread scaling where hardware permits.
-
-Performance changes are retained only after numerical equivalence, memory, worst-case timing, and full integration gates pass.
+Version 1.0 is complete only when both methods are documented, independently
+validated, numerically certified, deterministic within their gates, usable
+from both supported input modes, and qualified on every advertised platform.
 
 ---
 
-## 9. CI and development workflow
-
-The repository already has a licensed Stata/MP 18 and Rust self-hosted runner on the Mac Studio. Its exact-SHA receipt is authoritative.
-
-## 9.1 ChatGPT Pro web workflow
-
-For each substantive checkpoint:
-
-1. read `PLAN.md`, `gptpro.md`, `STATA_CI_RUNNER.md`, and current branch state;
-2. inspect the newest exact-SHA receipt, not only `.ci/stata/latest.json`;
-3. make one focused, reviewable change;
-4. commit and push frequently so a long web session is recoverable;
-5. record the full source SHA;
-6. wait for or inspect the **Licensed Stata and Rust CI** run;
-7. require an immutable receipt whose `tested_sha` exactly equals the source SHA;
-8. require `status=success`, `stata_status=success`, and `rust_status=success`;
-9. fix failures in a new commit rather than rewriting evidence;
-10. update this plan or a future `STATUS.md` at every major milestone.
-
-The ChatGPT sandbox must not claim to have executed licensed Stata or local Rust. The self-hosted runner receipt is the evidence.
-
-## 9.2 Local Codex workflow
-
-Local Codex may:
-
-- create a trusted `codex/**` branch;
-- run Rust and Stata tests directly on the Mac Studio;
-- inspect detailed logs and benchmark locally;
-- push focused checkpoints;
-- use the same exact-SHA receipt loop;
-- merge only a green source SHA into `main`.
-
-Long-lived divergence should be avoided. Experimental branches should either be merged with evidence or deleted after their decision is recorded.
-
-## 9.3 Branch policy
-
-- `main` is the authoritative integration branch and contains this plan.
-- Small documentation and tightly scoped implementation checkpoints may be committed directly to `main` when explicitly directed.
-- Risky numerical experiments and local Codex work should use `codex/**` branches.
-- No deliberate failing checkpoint is merged into `main`.
-- Receipt-publisher `[skip ci]` commits are bookkeeping and must not be mistaken for tested source commits.
-
-## 9.4 CI profile evolution
-
-Current profiles are `version`, `smoke`, and `quick`. As the package develops, add explicit profiles without changing machine-level runner configuration:
-
-- `quick`: format, Clippy, Rust unit tests, plugin build, small Stata fixture;
-- `full`: all Rust tests, release build, all Stata integration tests, help examples;
-- `benchmark`: medium synthetic graph timing and memory records;
-- `release`: package manifest, version stamping, checksums, platform artifact validation.
-
-Ordinary pushes should remain bounded. Large benchmarks and release builds should be manual or explicitly path-triggered.
-
----
-
-## 10. Repository structure
-
-Target structure:
-
-```text
-PLAN.md
-STATUS.md                         # add when implementation begins
-README.md
-LICENSE
-CITATION.cff
-CHANGELOG.md
-Cargo.toml
-Cargo.lock
-rust-toolchain.toml
-crates/
-  firmladder-core/
-  firmladder-plugin/
-  firmladder-cli/
-stata/
-  firmladder.ado
-  firmladder.sthlp
-  firmladder_estat.ado
-  firmladder_build.ado            # later
-  firmladder_build.sthlp          # later
-  firmladder.pkg
-  stata.toc
-plugin/
-  macos-arm64/
-  macos-x86_64/
-  windows-x86_64/
-  linux-x86_64/
-tests/
-  fixtures/
-  rust/
-  stata/
-benchmarks/
-examples/
-docs/
-  METHODS.md
-  FLOW_CONSTRUCTION.md
-  NUMERICAL_CERTIFICATION.md
-  PLUGIN_ARCHITECTURE.md
-  PERFORMANCE.md
-ci/
-.ci/
-.github/workflows/
-```
-
-Generated binaries should not be committed during ordinary development unless the distribution strategy explicitly requires versioned release binaries. GitHub releases may carry platform artifacts and checksums.
-
----
-
-## 11. Milestones and gates
-
-## M0. Specification and scaffold
-
-**Deliverables**
-
-- [x] repository-scoped licensed Stata/Rust CI bootstrap;
-- [x] ChatGPT Pro handoff documentation;
-- [x] comprehensive `PLAN.md`;
-- [ ] choose provisional public syntax and normalization defaults;
-- [ ] choose GPL-3.0-only and install full license text;
-- [ ] add workspace, toolchain pin, README, STATUS, and package skeleton.
-
-**Gate**
-
-- exact-SHA `quick` CI green after the first real Rust workspace and Stata command skeleton.
-
-## M1. Mathematical specification and dense oracle
-
-**Deliverables**
-
-- [ ] `docs/METHODS.md` with orientation, equations, component rule, and normalization;
-- [ ] bounded independent dense stationary oracle;
-- [ ] hand-verified small fixtures;
-- [ ] explicit error and residual definitions;
-- [ ] test vectors for periodic and nearly reducible graphs.
-
-**Gate**
-
-- oracle reproduces all hand calculations and rejects invalid systems deterministically.
-
-## M2. Rust graph and SCC core
-
-**Deliverables**
-
-- [ ] checked edge ingestion;
-- [ ] deterministic ID compression;
-- [ ] duplicate aggregation;
-- [ ] outflow and incoming sparse rows;
-- [ ] iterative SCC decomposition;
-- [ ] component diagnostics and selection.
-
-**Gate**
-
-- full graph/SCC tests green under permutation, duplicate splitting, and adversarial graph families.
-
-## M3. Certified Sorkin solver
-
-**Deliverables**
-
-- [ ] lazy sparse power iteration;
-- [ ] original-equation residual certification;
-- [ ] numerical overflow/nonfinite hardening;
-- [ ] normalization, ranks, and percentiles;
-- [ ] deterministic optional parallel execution;
-- [ ] machine-readable solve report.
-
-**Gate**
-
-- production solver matches the independent oracle on all bounded fixtures and passes medium synthetic tests.
-
-## M4. Stata plugin boundary
-
-**Deliverables**
-
-- [ ] versioned C ABI;
-- [ ] macOS arm64 plugin build;
-- [ ] direct marked-data ingestion;
-- [ ] output-variable or transfer-buffer protocol;
-- [ ] stable Stata error codes;
-- [ ] panic containment and malformed-request tests.
-
-**Gate**
-
-- Stata loads the plugin and reproduces Rust fixture results under exact-SHA CI.
-
-## M5. `firmladder` edge-list command
-
-**Deliverables**
-
-- [ ] production `.ado` parser;
-- [ ] `eclass` results;
-- [ ] firm-level result frame;
-- [ ] component, convergence, and normalization options;
-- [ ] `estat components` and `estat convergence`;
-- [ ] help file and executable examples;
-- [ ] limited `engine(mata)` validation mode.
-
-**Gate**
-
-- all Stata integration tests and help examples green; input data remain unchanged by default.
-
-## M6. Robustness and econometric validation
-
-**Deliverables**
-
-- [ ] simulated recovery experiments;
-- [ ] weak-link and threshold sensitivity tests;
-- [ ] alternative starts and damping tests;
-- [ ] split-sample workflow;
-- [ ] documented component-selection implications;
-- [ ] large synthetic graph tests.
-
-**Gate**
-
-- no false convergence, silent component changes, or undocumented normalization behavior.
-
-## M7. Performance qualification
-
-**Deliverables**
-
-- [ ] phase timing and retained-memory reports;
-- [ ] deterministic multi-thread route;
-- [ ] medium benchmark gates on Mac Studio;
-- [ ] 1–24 thread scaling evidence on Mac Studio;
-- [ ] large 1M-firm/10M-edge qualification where feasible;
-- [ ] performance guide with when to use plugin versus reference engine.
-
-**Gate**
-
-- end-to-end gains justify the plugin architecture, with exact numerical and memory evidence.
-
-## M8. Flow builder
-
-**Deliverables**
-
-- [ ] explicit spell-to-flow specification;
-- [ ] `firmladder_build` command;
-- [ ] concurrent-job, recall, gap, and nonemployment tests;
-- [ ] fractional endogenous-move weights;
-- [ ] output compatible with `firmladder` without hidden transformations.
-
-**Gate**
-
-- every flow-construction decision is represented in syntax, metadata, and tests.
-
-## M9. Cross-platform release engineering
-
-**Deliverables**
-
-- [ ] Windows x86_64 plugin and Stata smoke test;
-- [ ] Linux x86_64 plugin and Stata smoke test;
-- [ ] macOS arm64 release qualification;
-- [ ] optional macOS x86_64 qualification;
-- [ ] reproducible artifact workflow and SHA-256 checksums;
-- [ ] SSC-style package files and GitHub release archive.
-
-**Gate**
-
-- every advertised platform has a licensed-Stata load and numerical integration test.
-
-## M10. Version 1.0 closure
-
-**Deliverables**
-
-- [ ] final source audit;
-- [ ] final documentation and help audit;
-- [ ] full GPLv3 text and provenance records;
-- [ ] citation metadata and methodological references;
-- [ ] changelog and semantic versioning;
-- [ ] clean repository with obsolete one-shot workflows removed;
-- [ ] tagged release and installation instructions.
-
-**Definition of complete**
-
-Version 1.0 is complete only when:
-
-- the exact Sorkin flow-value equation is implemented and documented;
-- all successful results carry an original-equation residual certificate;
-- SCC restriction and retained flow shares are explicit;
-- small results match an independent oracle;
-- medium and large tests show predictable memory use;
-- Stata integration is green on every supported platform;
-- the package installs cleanly and all documented examples run;
-- no known critical numerical, API, licensing, or interpretation defect remains.
-
----
-
-## 12. Documentation plan
-
-### `README.md`
-
-- concise purpose and scope;
-- installation;
-- minimal edge-list example;
-- interpretation boundary between flow value and structural value;
-- supported platforms and development status.
-
-### `docs/METHODS.md`
-
-- complete notation and orientation;
-- Perron/stationary-distribution equivalence;
-- SCC identification;
-- normalization;
-- residual and convergence definitions;
-- differences between Sorkin, Bradley–Terry, and wage-FE methods.
-
-### `docs/FLOW_CONSTRUCTION.md`
-
-- moves versus all transitions;
-- job-to-job definition;
-- gaps and nonemployment;
-- recalls and firm-ID changes;
-- concurrent jobs and dominant-employer rules;
-- fractional move weights;
-- minimum-flow thresholds;
-- subgroup-specific graphs.
-
-### `docs/NUMERICAL_CERTIFICATION.md`
-
-- exact residuals;
-- determinism;
-- handling of periodicity;
-- nonfinite and overflow errors;
-- reference oracle;
-- precision limits.
-
-### `docs/PERFORMANCE.md`
-
-- benchmark hardware;
-- graph sizes and flow distributions;
-- thread routing;
-- phase timing and memory;
-- qualification boundaries.
-
----
-
-## 13. Risk register
-
-### R1. Orientation mistakes
-
-**Risk:** Origin/destination conventions can transpose the operator and reverse interpretation.  
-**Mitigation:** One canonical notation, hand-worked asymmetric fixtures, and stored orientation metadata.
-
-### R2. Mislabeling the estimand
-
-**Risk:** Flow-relevant value may be presented as full structural firm value.  
-**Mitigation:** Command, variables, help, and docs use `flow_value` or `revealed_value`; structural mode is a separate later feature.
-
-### R3. Component selection drives results
-
-**Risk:** The largest SCC may exclude important firms or vary across groups.  
-**Mitigation:** Always report all component sizes and flow shares; expose selection options; never silently bridge components.
-
-### R4. Slow mixing
-
-**Risk:** Nearly decomposable directed graphs can require many power iterations.  
-**Mitigation:** Lazy operator, residual monitoring, stagnation diagnostics, optional later Arnoldi fallback, and no false success.
-
-### R5. Extreme dynamic range
-
-**Risk:** Very unequal flows may overflow, underflow, or erase small stationary masses.  
-**Mitigation:** checked finite arithmetic, stable normalization, compensated sums, adversarial tests, and explicit failure.
-
-### R6. Hidden substantive choices in flow construction
-
-**Risk:** Convenience code may silently define recalls, gaps, or concurrent jobs.  
-**Mitigation:** separate builder command, explicit options, detailed metadata, and edge-list estimator as the canonical core.
-
-### R7. Stata plugin ABI and platform differences
-
-**Risk:** A binary may compile but fail to load or behave differently across Stata platforms.  
-**Mitigation:** thin ABI, no unwind across FFI, platform-specific licensed-Stata smoke tests, and checksummed releases.
-
-### R8. CI bookkeeping confusion
-
-**Risk:** Receipt-publisher commits may be mistaken for tested source.  
-**Mitigation:** require the exact full `tested_sha` receipt for every qualification claim.
-
-### R9. Scope expansion
-
-**Risk:** Structural values, CMG, AKM, Bradley–Terry, and flow building delay a clean first release.  
-**Mitigation:** freeze version 0.1 around the exact directed-flow estimator; stage all extensions after the core is production-ready.
-
----
-
-## 14. Initial decisions
-
-The following defaults are adopted for planning and should be revisited only with explicit evidence or owner direction:
-
-1. Package and main command name: **`firmladder`**.
-2. Version 0.1 method: exact Sorkin-style directed fixed point.
-3. Canonical input: prepared directed edge list.
-4. Numerical backend: Rust plugin; bounded reference engine for validation.
-5. Output: firm-level Stata frame plus `eclass` diagnostics.
-6. Periodicity treatment: lazy iteration, provisional `λ=0.5`.
-7. No hidden teleportation, ridge, smoothing, or component bridging.
-8. CMG is not used for the nonsymmetric version 0.1 fixed point.
-9. CMG integration is reserved for wage-FE and Bradley–Terry extensions.
-10. Provisional license: GPL-3.0-only.
-11. `main` is the authoritative integration branch; local experiments may use trusted `codex/**` branches.
-12. Exact-SHA licensed Stata/Rust receipts are required for qualification claims.
-
----
-
-## 15. Decisions requiring owner sign-off before API freeze
-
-These do not block initial scaffolding, but must be resolved before version 0.1 syntax and help are declared stable:
-
-1. **Default SCC rule:** largest by firm count, employment, or retained directed flow.
-2. **Default normalization:** unweighted mean log value zero or employment-weighted mean zero.
-3. **Minimum supported Stata version:** begin with Stata 18 on the runner, then decide whether public support should extend to Stata 16 or 17.
-4. **Primary output behavior:** always create a result frame, or permit a firm-level input mode that generates variables in place.
-5. **Fractional-flow syntax:** `flow(varname)` only, or also Stata weight syntax.
-6. **Version 0.1 panel convenience:** edge list only, or include a deliberately minimal raw-transition mode.
-7. **Public package scope:** rank-only initial release versus including split-sample diagnostics in version 0.1.
-8. **Cross-platform release order:** macOS arm64 first, then Windows and Linux together or sequentially.
-9. **CMG dependency strategy:** pinned Git dependency, workspace sibling, or vendored audited source when later extensions begin.
-
-Record the final answers in this plan’s decision log and in user-facing documentation.
-
----
-
-## 16. Immediate next actions
-
-1. Create the Rust workspace and pin the Rust toolchain.
-2. Add `README.md`, `STATUS.md`, full GPLv3 license text, and package skeleton.
-3. Write `docs/METHODS.md` with a single unambiguous orientation convention.
-4. Implement the independent dense oracle and hand-worked fixtures before the production sparse solver.
-5. Implement deterministic edge canonicalization and SCC decomposition.
-6. Extend the existing `quick` CI profile to run the real Rust workspace and the first Stata package smoke test.
-7. Require an exact-SHA green receipt before moving from each milestone to the next.
-
-The first production-code milestone should not begin with Stata syntax or performance tuning. It should begin with a mathematically pinned oracle and adversarial directed-graph fixtures so that every later optimization is judged against a trusted target.
+## 8. Fixed decisions and immediate work
+
+The following decisions are fixed unless the owner explicitly changes them:
+
+1. Package and command name: `ferank`.
+2. Version 0.1 methods: Sorkin and Bradley–Terry with required `method()`.
+3. Inputs: prepared directed edges or the narrow worker-period panel contract.
+4. Panel default: adjacent periods only, `maxgap(1)`, and missing firms break
+   transitions.
+5. Default component: largest directed SCC by firms, then flow, then firm ID.
+6. Default normalization: unweighted mean score zero.
+7. Output: point scores, midranks, percentiles, coverage, and diagnostics; no
+   inference.
+8. Backend: Rust plugin plus bounded independent reference engines.
+9. Bradley–Terry large-system backend: the pinned GPL-3.0-only CMG core.
+10. No hidden smoothing, teleportation, ridge, or component bridging.
+11. Exact-SHA licensed Stata/Rust receipts are the qualification evidence.
+
+Immediate implementation begins with the shared orientation fixtures and two
+independent dense oracles, followed by canonical graph construction. Public
+syntax and performance work must not outrun those scientific references.
