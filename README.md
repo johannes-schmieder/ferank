@@ -59,7 +59,7 @@ cargo test --workspace --all-targets --all-features
 On the licensed Mac development host:
 
 ```sh
-scripts/build_macos_native.sh
+scripts/build_macos_universal.sh
 ci/run_stata_ci.sh quick
 ```
 

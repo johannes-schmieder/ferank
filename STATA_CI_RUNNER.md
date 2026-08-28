@@ -13,7 +13,8 @@ therefore has the same practical authority as that account.
 - Batch invocation: `stata-mp -q -b do FILE.do`.
 - Rust stable 1.97.1 with rustfmt and Clippy; installed pinned toolchains also
   include 1.81.0 and 1.85.1.
-- Apple clang/Xcode is installed for native plugin builds.
+- Apple clang/Xcode and both pinned Rust macOS targets are installed for
+  universal x86_64/arm64 plugin builds.
 
 Stata can return shell status zero after a Stata-language error. CI therefore
 requires an explicit `stata.status` file and a profile-specific PASS marker.
@@ -35,6 +36,9 @@ Run locally from repository root with:
 ./ci/run_stata_ci.sh quick
 ./ci/run_rust_quick.sh
 ```
+
+The quick profile builds the universal macOS plugin and loads its native slice
+in Stata before running the package fixtures.
 
 Each Stata run stages only Git-tracked files into a fresh temporary tree,
 isolates all writable Stata system directories, and uses the shared lock
