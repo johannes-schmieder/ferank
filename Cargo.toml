@@ -1,0 +1,32 @@
+[workspace]
+members = [
+    "crates/ferank-core",
+    "crates/ferank-plugin",
+    "crates/ferank-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+authors = ["Johannes F. Schmieder"]
+license = "GPL-3.0-only"
+repository = "https://github.com/johannes-schmieder/ferank"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+cast_precision_loss = "allow"
+float_cmp = "allow"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
+strip = true

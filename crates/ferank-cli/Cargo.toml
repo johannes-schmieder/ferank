@@ -1,0 +1,18 @@
+[package]
+name = "ferank-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ferank-cli"
+path = "src/main.rs"
+
+[dependencies]
+ferank-core = { path = "../ferank-core" }
+
+[lints]
+workspace = true
