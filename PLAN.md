@@ -399,7 +399,7 @@ same Stata numerical fixtures there. Development begins with licensed Stata/MP
 - [x] Licensed Stata/Rust CI bootstrap.
 - [x] Rename repository, runner, and project identity to `ferank`.
 - [x] Freeze the roadmap around Sorkin and Bradley–Terry flow rankings.
-- [ ] Add README, STATUS, GPL-3.0-only license, toolchain pin, and package
+- [x] Add README, STATUS, GPL-3.0-only license, toolchain pin, and package
   skeleton.
 
 **Gate:** renamed infrastructure publishes an exact-green receipt containing
@@ -407,10 +407,10 @@ the `ferank` repository, runner, and smoke marker.
 
 ### M1. Shared graph and dense oracles
 
-- [ ] Pin the mathematical orientation and panel-to-edge contract in methods
+- [x] Pin the mathematical orientation and panel-to-edge contract in methods
   documentation.
-- [ ] Implement both independent dense oracles and hand-worked fixtures.
-- [ ] Implement deterministic edge/panel ingestion, ID compression, SCCs, and
+- [x] Implement both independent dense oracles and hand-worked fixtures.
+- [x] Implement deterministic edge/panel ingestion, ID compression, SCCs, and
   component diagnostics.
 
 **Gate:** adversarial graph and panel fixtures pass both oracles and shared
@@ -418,28 +418,28 @@ canonicalization properties.
 
 ### M2. Certified Sorkin method
 
-- [ ] Implement sparse lazy iteration, original-equation residuals,
+- [x] Implement sparse lazy iteration, original-equation residuals,
   normalization, ranks, and diagnostics.
-- [ ] Match the dense oracle and pass medium synthetic graphs.
+- [x] Match the dense oracle and pass medium synthetic graphs.
 
 ### M3. Certified Bradley–Terry method
 
-- [ ] Internalize the pinned CMG source with provenance and license notices.
-- [ ] Implement dense and CMG-preconditioned Newton/IRLS routes, line search,
+- [x] Internalize the pinned CMG source with provenance and license notices.
+- [x] Implement dense and CMG-preconditioned Newton/IRLS routes, line search,
   separation checks, and KKT certification.
-- [ ] Match the dense oracle and pass medium synthetic graphs.
+- [x] Match the dense oracle and pass medium synthetic graphs.
 
 ### M4. Stata command and plugin
 
-- [ ] Implement both syntax branches, the versioned ABI, transactional result
+- [x] Implement both syntax branches, the versioned ABI, transactional result
   frame, `eclass` results, and two `estat` commands.
-- [ ] Execute all help examples and cross-language fixtures in licensed Stata.
+- [x] Execute all help examples and cross-language fixtures in licensed Stata.
 
 ### M5. Performance and robustness
 
 - [ ] Qualify deterministic parallel routes, weak-link behavior, large graphs,
   memory bounds, and panel ingestion scale.
-- [ ] Document interpretation differences between the two flow scores without
+- [x] Document interpretation differences between the two flow scores without
   introducing non-flow estimands.
 
 ### M6. Cross-platform release
@@ -473,6 +473,8 @@ The following decisions are fixed unless the owner explicitly changes them:
 10. No hidden smoothing, teleportation, ridge, or component bridging.
 11. Exact-SHA licensed Stata/Rust receipts are the qualification evidence.
 
-Immediate implementation begins with the shared orientation fixtures and two
-independent dense oracles, followed by canonical graph construction. Public
-syntax and performance work must not outrun those scientific references.
+The scientific implementation, macOS plugin, Stata command, and planned medium
+and large synthetic graph sizes now pass locally. The next acceptance action is
+an exact-SHA licensed macOS Stata/Rust receipt. Remaining release work is peak
+RSS capture, scaled panel ingestion evidence, self-contained universal-macOS
+packaging, and licensed Windows x86_64 and Linux x86_64 plugin qualification.

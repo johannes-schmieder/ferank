@@ -14,10 +14,13 @@
       "required_log_markers": ["FERANK STATA MATA SMOKE PASS"]
     },
     "quick": {
-      "suite": "ci/stata_smoke.do",
+      "suite": "ci/stata_package_quick.do",
       "arguments": [],
-      "timeout_seconds": 600,
-      "required_log_markers": ["FERANK STATA MATA SMOKE PASS"]
+      "timeout_seconds": 1200,
+      "required_log_markers": [
+        "FERANK STATA MATA SMOKE PASS",
+        "FERANK STATA PACKAGE QUICK PASS"
+      ]
     }
   },
   "stata_plus_files": []

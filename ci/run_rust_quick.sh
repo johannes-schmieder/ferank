@@ -22,7 +22,10 @@ if ! "$rustup_bin" toolchain list | /usr/bin/grep -Eq "^${toolchain}([[:space:]]
   exit 127
 fi
 
-rustc_version="$($rustup_bin run "$toolchain" rustc --version)"
+rustc_bin="$($rustup_bin which --toolchain "$toolchain" rustc)"
+toolchain_bin="$(dirname "$rustc_bin")"
+export PATH="$toolchain_bin:/usr/bin:/bin:/usr/sbin:/sbin"
+rustc_version="$(rustc --version)"
 echo "RUST_TOOLCHAIN=$toolchain"
 echo "RUSTC_VERSION=$rustc_version"
 
@@ -31,15 +34,15 @@ if [[ -f Cargo.toml ]]; then
   if [[ -f Cargo.lock ]]; then
     locked=(--locked)
   fi
-  "$rustup_bin" run "$toolchain" cargo fmt --all --check
-  "$rustup_bin" run "$toolchain" cargo clippy "${locked[@]}" --workspace --all-targets --all-features -- -D warnings
-  "$rustup_bin" run "$toolchain" cargo test "${locked[@]}" --workspace --all-targets --all-features
+  cargo fmt --all --check
+  cargo clippy "${locked[@]}" --workspace --all-targets --all-features -- -D warnings
+  cargo test "${locked[@]}" --workspace --all-targets --all-features
   echo "RUST_QUICK_MODE=repository"
 else
   smoke_root="${RUNNER_TEMP:-/private/tmp}/ferank-rust-smoke-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
   /bin/mkdir -p "$smoke_root"
   /usr/bin/printf '%s\n' 'fn main() { println!("FERANK_RUST_CI_OK"); }' > "$smoke_root/main.rs"
-  "$rustup_bin" run "$toolchain" rustc "$smoke_root/main.rs" -o "$smoke_root/ferank-rust-smoke"
+  rustc "$smoke_root/main.rs" -o "$smoke_root/ferank-rust-smoke"
   "$smoke_root/ferank-rust-smoke"
   echo "RUST_QUICK_MODE=toolchain-smoke"
 fi

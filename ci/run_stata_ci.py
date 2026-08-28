@@ -138,6 +138,15 @@ def main() -> int:
     staged_root = run_root / "repo"
     staged_root.mkdir()
     stage_repository(root, staged_root)
+    if args.profile == "quick" and (root / "Cargo.toml").is_file():
+        native_plugin = root / "dist" / "ferank_macos.plugin"
+        if not native_plugin.is_file():
+            raise FileNotFoundError(
+                "quick profile requires dist/ferank_macos.plugin; run the native build first"
+            )
+        plugin_target = staged_root / "stata" / "ferank_macos.plugin"
+        plugin_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(native_plugin, plugin_target)
     for directory in (
         "stata-plus",
         "stata-personal",

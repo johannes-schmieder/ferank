@@ -2,4 +2,9 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-exec /usr/bin/python3 "$script_dir/run_stata_ci.py" "${1:-quick}"
+profile="${1:-quick}"
+repo_root="$(cd "$script_dir/.." && pwd)"
+if [[ "$profile" == "quick" && -f "$repo_root/Cargo.toml" ]]; then
+  "$repo_root/scripts/build_macos_native.sh"
+fi
+exec /usr/bin/python3 "$script_dir/run_stata_ci.py" "$profile"
