@@ -43,8 +43,11 @@ standard errors, bootstrap intervals, or influence functions. It never joins
 components or adds hidden smoothing, teleportation, or ridge terms.
 
 The exact input contract and numerical methods are documented in
-[`docs/methods.md`](docs/methods.md). [`PLAN.md`](PLAN.md) is the authoritative
-development and qualification roadmap.
+[`docs/methods.md`](docs/methods.md). The long-form
+[`report/ferank_technical_report.tex`](report/ferank_technical_report.tex)
+companion explains the graph theory, estimators, diagnostics, and reproducible
+Veneto example for an applied labor-economics audience. [`PLAN.md`](PLAN.md) is
+the authoritative development and qualification roadmap.
 
 ## Development
 

@@ -8,3 +8,8 @@ __pycache__/
 /.ci/stata/run/
 /dist/
 /benchmark-results/
+/report/data/external/
+/report/output/
+/report/build/
+/literature/
+/stata/*.plugin
