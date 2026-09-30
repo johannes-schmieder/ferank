@@ -18,13 +18,16 @@ def check_manifest(path):
             continue
         if fields[0] in {"f", "F"}:
             assert len(fields) == 2, line
+            assert not Path(fields[1]).name.startswith("_"), line
             assert (path.parent / fields[1]).is_file(), line
         elif fields[0] in {"g", "G"}:
             assert len(fields) == 3, line
+            assert not Path(fields[2]).name.startswith("_"), line
             assert (path.parent / fields[2]).is_file(), line
             assert fields[1] not in platform_files, line
             platform_files[fields[1]] = Path(fields[2]).name
         elif fields[0] == "h":
+            assert not Path(fields[1]).name.startswith("_"), line
             required.append(fields[1])
     assert set(platform_files) == PLATFORMS, platform_files
     assert set(platform_files.values()) == {"ferank_macos.plugin"}

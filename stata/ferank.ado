@@ -9,8 +9,8 @@ program define ferank, eclass sortpreserve
             di as error "specify exactly one of version or selftest"
             exit 198
         }
-        if `"`version'"' != "" _ferank_load, action(version)
-        else _ferank_load, action(selftest)
+        if `"`version'"' != "" ferank_load, action(version)
+        else ferank_load, action(selftest)
         ereturn clear
         ereturn local cmd "ferank"
         ereturn local version "0.1.0"
@@ -208,7 +208,7 @@ program define _ferank_fit, eclass
     }
     quietly frame `work': replace `normalization_weight' = 1 if missing(`touse')
 
-    _ferank_load, action(loadonly)
+    ferank_load, action(loadonly)
     local plugin_file `"`r(plugin_file)'"'
     local caller_frame "`c(frame)'"
     frame change `work'

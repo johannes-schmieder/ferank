@@ -1,5 +1,5 @@
-*! ferank native plugin loader 0.1.0 28aug2026
-program define _ferank_load, rclass
+*! ferank native plugin loader 0.1.0 30sep2026
+program define ferank_load, rclass
     version 18.0
     syntax , ACTION(string)
 

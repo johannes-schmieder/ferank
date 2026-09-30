@@ -46,7 +46,7 @@ def main():
     if "FERANK ISOLATED INSTALL AND README EXAMPLES PASS" not in log:
         raise RuntimeError("Install test did not emit its PASS marker")
     installed_hashes = {}
-    names = ["ferank.ado", "_ferank_load.ado", "ferank_estat.ado", "ferank_run.ado",
+    names = ["ferank.ado", "ferank_load.ado", "ferank_estat.ado", "ferank_run.ado",
              "ferank.sthlp", "ferank_postestimation.sthlp", "ferank_macos.plugin",
              "ferank_LICENSE.txt", "ferank_NOTICE.txt", "ferank_macos.plugin.sha256"]
     for name in names:

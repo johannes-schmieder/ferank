@@ -48,9 +48,11 @@ help ferank
 
 This installs the command, help files and compiled Mac plugin into Stata's
 ado directory. No manual download or `adopath` change is required. The
-selftest checks that the plugin loads and runs. For updates, restart Stata
-before running the installation command again, so a previously loaded plugin
-is replaced in memory. This GitHub install follows `main`; ferank is not on SSC.
+selftest checks that the plugin loads and runs. For updates, restart Stata,
+run `ado uninstall ferank`, then run the installation block above. Uninstalling
+first removes obsolete package files, including the former `_ferank_load.ado`;
+`net install, replace` alone leaves renamed files behind. This GitHub install
+follows `main`; ferank is not on SSC.
 
 ## Example 1: Rank firms from a worker-year panel
 

@@ -6,7 +6,7 @@ F ferank_LICENSE.txt
 F ferank_NOTICE.txt
 F ferank_macos.plugin.sha256
 f ferank.ado
-f _ferank_load.ado
+f ferank_load.ado
 f ferank_estat.ado
 f ferank_run.ado
 f ferank.sthlp
