@@ -46,17 +46,20 @@ Public pushes and pull requests run Rust and Python checks on a
 GitHub-hosted Linux runner. They do not require Stata or access to a
 maintainer's machine.
 
-The licensed Mac lane and receipt publisher are guarded to run only for
-private-repository pushes or manual events. Pull requests never run on that
-self-hosted machine. Making this repository public disables both jobs;
-licensed qualification must then run locally or in a separate trusted
-private CI repository. Do not remove those guards to test public PR code.
+The licensed Mac lane, including its receipt-publication step, is guarded
+to run only for private-repository pushes or manual events. Pull requests
+never run on that self-hosted machine. Making this repository public disables
+that job; licensed qualification must then run locally or in a separate
+trusted private CI repository. Do not remove those guards to test public PR code.
 
 Private CI publishes immutable receipts at
 `.ci/stata/results/<tested-sha>.json`. A qualified checkpoint requires the
 exact source SHA and successful overall, Stata and Rust statuses. The
 `latest.json` file is only a convenience pointer. Historical receipts are
 retained as verification evidence; they do not qualify later source changes.
+The tested job publishes its validated receipt directly to Git; optional
+log artifacts have a seven-day retention and are not a qualification gate.
+An artifact-storage quota therefore cannot prevent receipt publication.
 
 ## Benchmarks and report
 
