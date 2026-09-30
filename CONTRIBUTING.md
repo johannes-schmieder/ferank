@@ -52,6 +52,12 @@ never run on that self-hosted machine. Making this repository public disables
 that job; licensed qualification must then run locally or in a separate
 trusted private CI repository. Do not remove those guards to test public PR code.
 
+Before making the repository public, remove its personal Mac runner registration
+and stop its local runner service. A pull request can edit a workflow, so a job
+condition does not safely isolate an attached personal machine. Keep licensed
+Stata automation in a separate trusted private repository or run it locally.
+See [GitHub's self-hosted runner security guidance](https://docs.github.com/en/actions/reference/security/secure-use).
+
 Private CI publishes immutable receipts at
 `.ci/stata/results/<tested-sha>.json`. A qualified checkpoint requires the
 exact source SHA and successful overall, Stata and Rust statuses. The

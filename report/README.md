@@ -28,8 +28,9 @@ The public file is a pseudonymous teaching extract distributed with the R
 package, not the confidential Veneto Workers History analysis sample. Its
 SHA-256 is pinned in `replication/stage_veneto_example.py`.
 
-Build the self-contained, phone-optimized HTML edition after the PDF exhibits
-have been generated:
+The HTML build also requires TeX4ht (`make4ht`), BibTeX and Poppler
+(`pdftoppm`) on your executable path. Build the self-contained, phone-optimized
+HTML edition after the PDF exhibits have been generated:
 
 ```sh
 report/replication/build_mobile_html.sh
