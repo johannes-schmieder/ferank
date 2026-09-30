@@ -1,4 +1,4 @@
-*! ferank 0.1.0 28aug2026
+*! ferank 0.1.0 30sep2026
 program define ferank, eclass sortpreserve
     version 18.0
 
@@ -17,10 +17,26 @@ program define ferank, eclass sortpreserve
         exit
     }
 
-    syntax varlist(min=1 max=2) [if] [in], METHOD(string) ///
+    * A private scratch frame is always removed, including on failed solves.
+    tempname work
+    local caller_frame "`c(frame)'"
+    if c(noisily) capture noisily _ferank_fit `0' _work(`work')
+    else capture _ferank_fit `0' _work(`work')
+    local fit_rc = _rc
+    frame change `caller_frame'
+    capture frame drop `work'
+    if `fit_rc' exit `fit_rc'
+    ereturn local cmdline `"ferank `0'"'
+end
+
+program define _ferank_fit, eclass
+    version 18.0
+
+    syntax varlist(min=1 max=2) [if] [in], METHOD(string) _WORK(name) ///
         [FLOW(varname) WORKER(varname) TIME(varname) MAXGAP(real 1) ///
         COMPONENT(string) NORMALIZE(string) NORMWEIGHT(varname) ///
-        REFERENCE(string) MINFLOW(real 0) FRAME(string) REPLACE ///
+        REFERENCE(string) MINFLOW(real 0) GENerate(namelist) SCORE(namelist) ///
+        PERCENTile(namelist) COMPONENTID(namelist) ///
         TOLERANCE(real 1e-10) MAXITER(integer 20000) THREADS(integer 0) ///
         ENGINE(string) LAZY(real 0.5) VERBOSE]
 
@@ -101,7 +117,30 @@ program define ferank, eclass sortpreserve
         }
         local input_mode "edge"
     }
-    if `"`frame'"' == "" local frame "ferank_results"
+    if `"`generate'`score'`percentile'"' == "" {
+        di as error "specify generate(), score(), or percentile()"
+        exit 198
+    }
+    local requested "`generate' `score' `percentile' `componentid'"
+    local unique : list uniq requested
+    local n_requested : word count `requested'
+    local n_unique : word count `unique'
+    if `n_requested' != `n_unique' {
+        di as error "each output variable must have a distinct name"
+        exit 198
+    }
+    foreach option in generate score percentile componentid {
+        if `"``option''"' != "" {
+            local n_output : word count ``option''
+            if `n_output' != `nvars' {
+                if `panel' di as error "`option'() requires one new variable in panel mode"
+                else di as error "`option'() requires two new variables: origin then destination"
+                exit 198
+            }
+        }
+    }
+    confirm new variable `requested'
+    local work "`_work'"
 
     local firm1 : word 1 of `varlist'
     local firm2 : word 2 of `varlist'
@@ -118,19 +157,12 @@ program define ferank, eclass sortpreserve
     capture confirm string variable `worker'
     local worker_string = (`panel' & _rc == 0)
 
-    capture frame `frame': count
-    local target_exists = (_rc == 0)
-    if `target_exists' & `"`replace'"' == "" {
-        di as error "result frame `frame' already exists; specify replace"
-        exit 110
-    }
-
     marksample touse, novarlist
     quietly count if `touse'
     if r(N) == 0 error 2000
     local marked_rows = r(N)
 
-    tempname work shared_label firm_label worker_label
+    tempname shared_label firm_label worker_label
     tempvar input1 input2 input3 input4 output_firm output_score output_rank ///
         output_percentile output_inflow output_outflow output_indegree ///
         output_outdegree output_q output_pi output_residual output_component ///
@@ -142,39 +174,39 @@ program define ferank, eclass sortpreserve
 
     if `firm1_string' {
         if `panel' {
-            frame `work': encode `firm1', generate(`input2') label(`firm_label')
+            quietly frame `work': encode `firm1', generate(`input2') label(`firm_label')
         }
         else {
-            frame `work': encode `firm1', generate(`input2') label(`shared_label')
-            frame `work': encode `firm2', generate(`input3') label(`shared_label')
+            quietly frame `work': encode `firm1', generate(`input2') label(`shared_label')
+            quietly frame `work': encode `firm2', generate(`input3') label(`shared_label')
         }
     }
     else {
-        frame `work': generate double `input2' = `firm1'
-        if !`panel' frame `work': generate double `input3' = `firm2'
+        quietly frame `work': generate double `input2' = `firm1'
+        if !`panel' quietly frame `work': generate double `input3' = `firm2'
     }
 
     if `panel' {
-        if `worker_string' frame `work': encode `worker', generate(`input3') label(`worker_label')
-        else frame `work': generate double `input3' = `worker'
-        frame `work': generate double `input4' = `time'
+        if `worker_string' quietly frame `work': encode `worker', generate(`input3') label(`worker_label')
+        else quietly frame `work': generate double `input3' = `worker'
+        quietly frame `work': generate double `input4' = `time'
     }
     else {
-        if `"`flow'"' == "" frame `work': generate double `input4' = 1
-        else frame `work': generate double `input4' = `flow'
+        if `"`flow'"' == "" quietly frame `work': generate double `input4' = 1
+        else quietly frame `work': generate double `input4' = `flow'
     }
-    if `"`normweight'"' == "" frame `work': generate double `normalization_weight' = 1
-    else frame `work': generate double `normalization_weight' = `normweight'
+    if `"`normweight'"' == "" quietly frame `work': generate double `normalization_weight' = 1
+    else quietly frame `work': generate double `normalization_weight' = `normweight'
 
     local capacity = cond(`panel', `marked_rows', 2 * `marked_rows')
-    frame `work': set obs `capacity'
-    frame `work': replace `touse' = 0 if missing(`touse')
+    quietly frame `work': set obs `capacity'
+    quietly frame `work': replace `touse' = 0 if missing(`touse')
     foreach variable in `output_firm' `output_score' `output_rank' ///
         `output_percentile' `output_inflow' `output_outflow' `output_indegree' ///
         `output_outdegree' `output_q' `output_pi' `output_residual' `output_component' {
-        frame `work': generate double `variable' = .
+        quietly frame `work': generate double `variable' = .
     }
-    frame `work': replace `normalization_weight' = 1 if missing(`touse')
+    quietly frame `work': replace `normalization_weight' = 1 if missing(`touse')
 
     _ferank_load, action(loadonly)
     local plugin_file `"`r(plugin_file)'"'
@@ -204,37 +236,79 @@ program define ferank, eclass sortpreserve
     }
 
     local n_results = scalar(__ferank_n_results)
-    frame `work': keep in 1/`n_results'
-    frame `work': keep `output_firm' `output_score' `output_rank' ///
+    quietly frame `work': keep in 1/`n_results'
+    quietly frame `work': keep `output_firm' `output_score' `output_rank' ///
         `output_percentile' `output_inflow' `output_outflow' `output_indegree' ///
         `output_outdegree' `output_q' `output_pi' `output_residual' `output_component'
     if `firm1_string' {
         local result_label = cond(`panel', "`firm_label'", "`shared_label'")
-        frame `work': label values `output_firm' `result_label'
-        frame `work': decode `output_firm', generate(`decoded_firm')
-        frame `work': drop `output_firm'
-        frame `work': rename `decoded_firm' firm_id
+        quietly frame `work': label values `output_firm' `result_label'
+        quietly frame `work': decode `output_firm', generate(`decoded_firm')
+        quietly frame `work': drop `output_firm'
+        quietly frame `work': rename `decoded_firm' firm_id
     }
-    else frame `work': rename `output_firm' firm_id
-    frame `work': rename `output_score' score
-    frame `work': rename `output_rank' rank
-    frame `work': rename `output_percentile' percentile
-    frame `work': rename `output_inflow' inflow
-    frame `work': rename `output_outflow' outflow
-    frame `work': rename `output_indegree' in_degree
-    frame `work': rename `output_outdegree' out_degree
-    frame `work': rename `output_q' revealed_value_q
-    frame `work': rename `output_pi' stationary_mass
-    frame `work': rename `output_residual' fixed_point_residual
-    frame `work': rename `output_component' component_id
-    frame `work': generate str16 method = "`method'"
-    frame `work': generate byte in_estimation_component = 1
-    frame `work': order firm_id method component_id in_estimation_component ///
-        score rank percentile inflow outflow in_degree out_degree ///
-        revealed_value_q stationary_mass fixed_point_residual
+    else quietly frame `work': rename `output_firm' firm_id
+    quietly frame `work': rename `output_score' score
+    quietly frame `work': rename `output_rank' rank
+    quietly frame `work': rename `output_percentile' percentile
+    quietly frame `work': rename `output_inflow' inflow
+    quietly frame `work': rename `output_outflow' outflow
+    quietly frame `work': rename `output_indegree' in_degree
+    quietly frame `work': rename `output_outdegree' out_degree
+    quietly frame `work': rename `output_q' revealed_value_q
+    quietly frame `work': rename `output_pi' stationary_mass
+    quietly frame `work': rename `output_residual' fixed_point_residual
+    quietly frame `work': rename `output_component' component_id
+    * Count distinct estimated components before mapping onto caller rows.
+    tempvar component_tag
+    quietly frame `work': egen byte `component_tag' = tag(component_id)
+    quietly frame `work': count if `component_tag'
+    local n_estimated = r(N)
 
-    if `target_exists' frame drop `frame'
-    frame rename `work' `frame'
+    * Stage every requested value under temporary names.  No user variable
+    * is created until the solve, all joins and all validations have succeeded.
+    local staged_outputs ""
+    local named_outputs ""
+    forvalues endpoint = 1/`nvars' {
+        local key : word `endpoint' of `varlist'
+        tempvar link
+        quietly frlink m:1 `key', frame(`work' firm_id) generate(`link')
+        quietly count if `touse' & !missing(`link')
+        local mapped`endpoint' = r(N)
+        if `endpoint' == 1 local link1 "`link'"
+        else local link2 "`link'"
+        foreach option in generate score percentile componentid {
+            if `"``option''"' != "" {
+                local output_name : word `endpoint' of ``option''
+                local source "`option'"
+                if "`option'" == "generate" local source "rank"
+                if "`option'" == "componentid" local source "component_id"
+                tempvar staged
+                quietly frget `staged'=`source', from(`link')
+                quietly replace `staged' = . if !`touse'
+                local description "continuous firm score (higher is better)"
+                if "`option'" == "generate" local description "firm rank (1 is best; ties averaged)"
+                if "`option'" == "percentile" local description "equal-firm percentile (100 is best)"
+                if "`option'" == "componentid" local description "estimated flow component ID"
+                local endpoint_label ""
+                if !`panel' {
+                    local endpoint_label "origin: "
+                    if `endpoint' == 2 local endpoint_label "destination: "
+                }
+                label variable `staged' "`method' `endpoint_label'`description'"
+                local staged_outputs "`staged_outputs' `staged'"
+                local named_outputs "`named_outputs' `output_name'"
+            }
+        }
+    }
+    local mapped = `mapped1'
+    if !`panel' {
+        quietly count if `touse' & !missing(`link1', `link2')
+        local mapped = r(N)
+    }
+
+    * Group rename is atomic; output names were checked before estimation.
+    rename (`staged_outputs') (`named_outputs')
 
     ereturn clear
     ereturn local cmd "ferank"
@@ -245,9 +319,21 @@ program define ferank, eclass sortpreserve
     ereturn local component "`component'"
     ereturn local normalization "`normalize'"
     ereturn local engine "`engine'"
-    ereturn local result_frame "`frame'"
+    ereturn local rankvars "`generate'"
+    ereturn local scorevars "`score'"
+    ereturn local percentilevars "`percentile'"
+    ereturn local componentvars "`componentid'"
     ereturn local convergence_certificate "`_ferank_certificate'"
     ereturn local linear_route "`_ferank_linear_route'"
+    ereturn scalar N_components_estimated = `n_estimated'
+    ereturn scalar N_mapped = `mapped'
+    ereturn scalar N_unmapped = `marked_rows' - `mapped'
+    if !`panel' {
+        ereturn scalar N_mapped_origin = `mapped1'
+        ereturn scalar N_mapped_destination = `mapped2'
+    }
+    ereturn scalar tolerance = `tolerance'
+    ereturn scalar maxiter = `maxiter'
     ereturn scalar N_input = scalar(__ferank_input_rows)
     ereturn scalar N_firms = scalar(__ferank_n_firms)
     ereturn scalar N_results = scalar(__ferank_n_results)
@@ -270,9 +356,74 @@ program define ferank, eclass sortpreserve
     ereturn scalar missing_firm_breaks = scalar(__ferank_missing_breaks)
     ereturn scalar same_firm_continuations = scalar(__ferank_same_firm)
 
-    di as text "Firm-flow ranking (`method')"
-    di as text "  result frame: " as result "`frame'"
-    di as text "  firms/edges/components: " as result %10.0fc e(N_results) ///
-        " / " %10.0fc e(N_edges) " / " %10.0fc e(N_components)
-    di as text "  convergence certificate: " as result "success"
+    _ferank_display
+    if `"`verbose'"' != "" estat convergence
+end
+
+program define _ferank_display
+    version 18.0
+    local method "Sorkin"
+    if `"`e(method)'"' == "bradleyterry" local method "Bradley-Terry"
+    local mode "Worker-period panel"
+    if `"`e(input_mode)'"' == "edge" local mode "Prepared directed flows"
+
+    di as text _n "Firm rankings from worker flows" _col(49) "Method: " as result "`method'"
+    di as text "{hline 78}"
+    di as text "Input" _col(29) as result "`mode'" ///
+        _col(55) as text "Input rows" _col(69) as result %10.0fc e(N_input)
+    di as text "Component rule" _col(29) as result "`e(component)'" ///
+        _col(55) as text "Graph firms" _col(69) as result %10.0fc e(N_firms)
+    di as text "Score centering" _col(29) as result "`e(normalization)'" ///
+        _col(55) as text "Ranked firms" _col(69) as result %10.0fc e(N_results)
+    di as text "Engine / native threads" _col(29) as result "`e(engine)' / " %3.0f e(threads) ///
+        _col(55) as text "Directed edges" _col(69) as result %10.0fc e(N_edges)
+    di as text "Graph / fitted components" _col(29) as result %8.0fc e(N_components) ///
+        " / " %8.0fc e(N_components_estimated)
+    if `"`e(input_mode)'"' == "panel" {
+        di as text "Panel moves / gap breaks" _col(29) as result %10.0fc e(valid_moves) ///
+            " / " %10.0fc e(gap_breaks)
+        di as text "Rows receiving firm values" _col(29) as result %10.0fc e(N_mapped) ///
+            as text " of " as result %10.0fc e(N_input)
+    }
+    else {
+        di as text "Mapped origin / destination" _col(29) as result %10.0fc e(N_mapped_origin) ///
+            " / " %10.0fc e(N_mapped_destination)
+        di as text "Rows with both firms ranked" _col(29) as result %10.0fc e(N_mapped) ///
+            as text " of " as result %10.0fc e(N_input)
+    }
+    di as text "Convergence" _col(29) as result "`e(convergence_certificate)'" ///
+        _col(55) as text "Iterations" _col(69) as result %10.0fc e(iterations)
+    if `"`e(method)'"' == "sorkin" {
+        di as text "Max / L1 equation residual" _col(29) as result %10.3e e(residual_max) ///
+            " / " %10.3e e(residual_l1)
+    }
+    else {
+        di as text "Constrained gradient" _col(29) as result %10.3e e(gradient_max) ///
+            _col(55) as text "Log likelihood" _col(69) as result %10.3f e(ll)
+    }
+    di as text "Native elapsed seconds" _col(29) as result %10.4f e(time_total)
+    di as text "{hline 78}"
+    di as text "Generated variables"
+    foreach statistic in rank score percentile component {
+        local names `"`e(`statistic'vars)'"'
+        local endpoint = 0
+        foreach name of local names {
+            local ++endpoint
+            local suffix ""
+            if `"`e(input_mode)'"' == "edge" {
+                local suffix " (origin)"
+                if `endpoint' == 2 local suffix " (destination)"
+            }
+            di as text "  `statistic'`suffix'" _col(29) as result "`name'"
+        }
+    }
+    di as text "{hline 78}"
+    di as text "Rank 1 is best; higher scores and percentiles are better. Ties are averaged."
+    di as text "Missing: rows outside if/in and firms without an estimated rank."
+    di as text "Native timing excludes Stata preparation and matching."
+    if e(N_components_estimated) > 1 {
+        di as text "Scores, ranks and percentiles are comparable only within each component."
+        if `"`e(componentvars)'"' == "" ///
+            di as text "Use componentid() to save component labels for comparisons."
+    }
 end

@@ -14,8 +14,8 @@ help for {cmd:ferank} {right:(Johannes F. Schmieder)}
 {cmd:ferank} ranks firms using observed worker moves. It estimates either
 Sorkin's flow-based revealed-preference score or a Bradley--Terry score,
 in which the destination of a move wins a comparison with the origin.
-Both methods use the same directed flow graph and return a separate
-firm-level result frame. A larger score means a more highly ranked firm;
+Both methods use the same directed flow graph and create named variables
+in your current dataset. A larger score means a more highly ranked firm;
 {bf:rank 1 is the highest rank}.
 
 {pstd}
@@ -49,25 +49,25 @@ Estimate Sorkin scores and inspect the firm-level results:
         3 1 2
         1 3 1
         end
-        tempname ranking
         ferank origin destination, method(sorkin) flow(moves) ///
-            frame(`ranking')
+            generate(origin_rank destination_rank) ///
+            score(origin_score destination_score) ///
+            percentile(origin_pct destination_pct)
         estat convergence
-        frame `ranking': sort rank
-        frame `ranking': list firm_id score rank percentile, noobs
-        frame drop `ranking'
+        egen byte firm_tag = tag(origin)
+        list origin origin_score origin_rank origin_pct if firm_tag==1, noobs
 {* example_end}{...}
         restore
 {txt}{...}
 
 {pstd}
 {stata ferank_run edges using ferank.sthlp:Click to run this example}
-(your data are restored and the temporary result frame is removed).
+(your original data are restored).
 This is a small syntax example, not evidence about an empirical labor market.
 
 {pstd}
 With a worker-year panel, the basic command is
-{cmd:ferank firm_id, worker(worker_id) time(year) method(sorkin)}.
+{cmd:ferank firm_id, worker(worker_id) time(year) method(sorkin) generate(firm_rank)}.
 The default permits transitions between observations at most one time unit
 apart. The {help ferank##panel_example:panel example} explains missing firms
 and gaps. {cmd:method()} is always required; it has no default.
@@ -90,6 +90,14 @@ and gaps. {cmd:method()} is always required; it has no default.
 {cmd:method(}{it:method}{cmd:)} [{it:options}]
 
 {pstd}
+Specify at least one of {cmd:generate()}, {cmd:score()} or {cmd:percentile()}.
+Each supplied output option takes {bf:one new variable in panel mode}, or
+{bf:two new variables in prepared-flow mode, origin first and destination
+second}. {cmd:componentid()} follows the same convention. Names must be new
+and distinct across all options. There is no {cmd:frame()} or {cmd:replace}
+option; older frame-based do-files must request named variable outputs.
+
+{pstd}
 {it:method} is {cmd:sorkin} or {cmd:bradleyterry}. Firm and worker identifiers
 may be numeric or string. In edge mode, origin and destination must both be
 numeric or both be string. Time, flow and normalization weights must be
@@ -107,8 +115,10 @@ is not supported; use {cmd:flow()} for weighted prepared moves.
     {cmd:normalize(mean|weighted|reference)}{col 42}score centering; default mean
     {cmd:normweight(}{it:varname}{cmd:)}{col 42}firm weights for weighted centering
     {cmd:reference(}{it:#}{cmd:)}{col 42}numeric firm ID set to score zero
-    {cmd:frame(}{it:name}{cmd:)}{col 42}result frame; default ferank_results
-    {cmd:replace}{col 42}replace result frame after success
+    {cmd:generate(}{it:newvars}{cmd:)}{col 42}ordinal ranks; 1 is best
+    {cmd:score(}{it:newvars}{cmd:)}{col 42}continuous normalized scores
+    {cmd:percentile(}{it:newvars}{cmd:)}{col 42}equal-firm percentiles; 100 is best
+    {cmd:componentid(}{it:newvars}{cmd:)}{col 42}estimated component labels
   {hline 76}
 
 {pstd}
@@ -174,11 +184,24 @@ before choosing a numeric reference. Centering shifts scores by a constant
 and leaves ranks and fitted comparisons unchanged.
 
 {phang}
-{cmd:frame()} names the firm-level result frame, default
-{cmd:ferank_results}. The caller's dataset and observation order stay
-unchanged. {cmd:replace} permits replacement of an existing result frame
-after successful estimation. Without it, an existing frame is an error.
-Use distinct names when retaining both methods for comparison.
+{cmd:generate()} writes ordinal ranks, with 1 best and average ranks for exact
+ties. {cmd:score()} writes normalized continuous scores; these are the
+appropriate values for Pearson correlations with AKM firm effects.
+{cmd:percentile()} writes equal-firm percentiles from 0 to 100, with higher
+values better. Request any combination. All are stored as doubles.
+
+{phang}
+{cmd:componentid()} saves the deterministic canonical component number.
+With {cmd:component(all)}, use these labels to compare values only within
+the same component. The command prints a reminder when multiple components
+are estimated without saved component IDs.
+
+{phang}
+The command adds only the requested variables. Existing data, labels,
+observation order and the active frame stay unchanged. Names are checked
+before estimation; all values are staged privately and published together
+only after success. Failed estimation leaves no partial output variables.
+No result frame or persistent frame link is created.
 
 {marker sample}
 {title:Which firms and moves are used? The flow sample}
@@ -208,20 +231,34 @@ added, and there is no smoothing or automatic component bridging. Firms
 observed only among stayers have no flow comparison and receive no score.
 
 {pstd}
-The result frame contains only firms in the selected estimable components.
-{cmd:e(N_firms)}, {cmd:e(N_edges)} and {cmd:e(N_components)} describe the
-{bf:full canonical graph before component selection}; {cmd:e(N_results)}
-counts returned firms. Frame inflows, outflows and degrees concern only
-edges internal to each selected component. {cmd:estat components} displays
-the component count, requested rule and result-firm count; it does not
-provide a firm-by-firm exclusion map or a table of all components.
+Generated values are filled only on rows selected by {cmd:if}/{cmd:in}.
+Other rows remain missing, even if their firm is ranked elsewhere in the
+selected data. Within selected panel rows, all observations of a ranked
+firm receive its value, including terminal observations and workers who
+never move. Firms outside selected estimable components and missing panel
+employers have missing values. Firms observed only among stayers have no
+flow comparison and receive no estimated value.
 
 {pstd}
-There is no observation-level {cmd:e(sample)} indicator. To attach scores
-to your panel, match its firm ID to {cmd:firm_id} in the result frame.
-Unmatched firms have no estimated score. Restricting to an AKM connected or
-leave-out-connected sample does not by itself guarantee a directed strongly
-connected flow sample.
+In prepared flows, origin and destination are matched independently. One
+endpoint may be ranked while the other is missing. A selected zero-flow or
+self-move row still receives a firm's values if that firm was ranked from
+other retained comparisons; the row does not contribute to estimation.
+
+{pstd}
+{cmd:e(N_firms)}, {cmd:e(N_edges)} and {cmd:e(N_components)} describe the
+{bf:full canonical graph before component selection}; {cmd:e(N_results)}
+counts ranked firms and {cmd:e(N_components_estimated)} counts separately
+estimated components. {cmd:e(N_mapped)} counts selected panel rows with a
+ranked employer, or selected flow rows with both endpoints ranked. Edge
+coverage is also reported separately for origins and destinations.
+
+{pstd}
+There is no observation-level {cmd:e(sample)} indicator or automatic
+out-of-sample attachment. Generated values identify which selected firms
+were ranked; they do not identify which rows contributed moves. Restricting
+to an AKM connected or leave-out-connected sample does not itself guarantee
+a directed strongly connected flow sample.
 
 {pstd}
 The command does not automatically reproduce Sorkin's empirical sample
@@ -234,37 +271,34 @@ when the narrow worker-period contract does not describe your data.
 {title:Reading the results}
 
 {pstd}
-The main display names the result frame, shows result firms alongside
-canonical edges and components, and reports numerical success. Inspect
-{cmd:estat convergence} and the frame to read the substantive results:
+The formatted display reports the method and input mode, canonical graph
+coverage, selected components, mapped rows, generated names and numerical
+certificate. Graph firms and edges are counted before component selection;
+mapped rows describe where firm values were attached. Native timing excludes
+Stata preparation and matching. Use {cmd:estat convergence} for detailed
+certificates and {cmd:estat components} for coverage.
 
-{phang2}{cmd:. estat components}{p_end}
-{phang2}{cmd:. estat convergence}{p_end}
-{phang2}{cmd:. frame ferank_results: sort rank}{p_end}
-{phang2}{cmd:. frame ferank_results: list firm_id score rank percentile if rank<=10}{p_end}
-
-  {it:Result-frame variable}{col 35}Meaning
+  {it:Output option}{col 35}Meaning
   {hline 76}
-    {cmd:firm_id}{col 35}original numeric or string firm identifier
-    {cmd:method}{col 35}sorkin or bradleyterry
-    {cmd:component_id}{col 35}component number in the canonical graph
-    {cmd:in_estimation_component}{col 35}one for every returned row
-    {cmd:score}{col 35}normalized method-specific score
-    {cmd:rank}{col 35}descending within-component midrank; 1 best
-    {cmd:percentile}{col 35}within-component rank percentile, 0 to 100
-    {cmd:inflow}, {cmd:outflow}{col 35}internal directed flow totals
-    {cmd:in_degree}, {cmd:out_degree}{col 35}distinct internal incoming/outgoing neighbors
-    {cmd:revealed_value_q}{col 35}Sorkin value before score centering
-    {cmd:stationary_mass}{col 35}Sorkin stationary probability mass
-    {cmd:fixed_point_residual}{col 35}Sorkin signed stationary-equation residual
+    {cmd:generate()}{col 35}descending within-component midrank; 1 best
+    {cmd:score()}{col 35}normalized method-specific continuous score
+    {cmd:percentile()}{col 35}within-component equal-firm percentile, 0 to 100
+    {cmd:componentid()}{col 35}canonical component ID of the estimated firm
   {hline 76}
 
 {pstd}
-The last three variables are missing after Bradley--Terry. Exact score ties
-receive their average rank. With J firms in a component,
+Exact score ties receive their average rank. With J firms in a component,
 {cmd:percentile = 100*(J-rank)/(J-1)}: the unique highest-scoring firm has
 percentile 100, and the unique lowest-scoring firm has percentile 0.
 These are {bf:equal-firm rank percentiles}, regardless of normalization.
+
+{pstd}
+Panel values repeat across observations of the same firm. An unweighted
+correlation on worker-year rows therefore weights firms by their matched
+person-years. For an equal-firm comparison, keep one selected observation
+per ranked firm, or use {cmd:egen tag = tag(firm)} on matched rows and restrict
+the summary to {cmd:tag==1}. Prepared-flow rows instead weight by how often
+an endpoint appears; use one row per firm when comparing firm scores.
 
 {marker methods}
 {title:What the two methods estimate}
@@ -316,7 +350,7 @@ these distinctions; the command itself does not impose a firm-size filter.
 
   {it:Command}{col 35}What it shows
   {hline 76}
-    {cmd:estat components}{col 35}component count, rule and returned firms
+    {cmd:estat components}{col 35}graph coverage, rule and mapped observations
     {cmd:estat convergence}{col 35}method-specific numerical certificate
   {hline 76}
 
@@ -341,7 +375,7 @@ an unidentified graph.
     {cmd:threads(}{it:#}{cmd:)}{col 35}native worker request; default 0 uses 1
     {cmd:lazy(}{it:#}{cmd:)}{col 35}Sorkin transition weight; default 0.5
     {cmd:engine(plugin|reference)}{col 35}estimation engine; default plugin
-    {cmd:verbose}{col 35}accepted; currently adds no display output
+    {cmd:verbose}{col 35}also displays the detailed convergence certificate
   {hline 76}
 
 {phang}
@@ -414,13 +448,11 @@ breaks the chain; worker 3's two-year gap contributes no move at the default
         3 1996 10
         3 1998 20
         end
-        tempname ranking
         ferank firm_id, worker(worker_id) time(year) ///
-            method(bradleyterry) frame(`ranking')
+            method(bradleyterry) generate(firm_rank) score(firm_score)
         display "Moves: " e(valid_moves) "; gap breaks: " e(gap_breaks)
         display "Missing-firm breaks: " e(missing_firm_breaks)
-        frame `ranking': list firm_id score rank, noobs
-        frame drop `ranking'
+        list worker_id year firm_id firm_score firm_rank, noobs sepby(worker_id)
 {* example_end}{...}
         restore
 {txt}{...}
@@ -429,8 +461,9 @@ breaks the chain; worker 3's two-year gap contributes no move at the default
 {dlgtab:Example 3: Compare both methods on the same flows}
 
 {pstd}
-Keep separate result frames and link them by the original firm ID. This
-example also shows string identifiers and fractional prepared flows.
+Save distinct variable names for the two methods. This example also shows
+string identifiers and fractional prepared flows. Keep one origin row per
+firm for an equal-firm score comparison.
 
 {cmd}{...}
         preserve
@@ -444,14 +477,13 @@ example also shows string identifiers and fractional prepared flows.
         "c" "a" 2
         "a" "c" 1
         end
-        tempname sr bt
-        ferank origin destination, method(sorkin) flow(moves) frame(`sr')
+        ferank origin destination, method(sorkin) flow(moves) ///
+            generate(sr_origin sr_destination) score(ss_origin ss_destination)
         ferank origin destination, method(bradleyterry) flow(moves) ///
-            frame(`bt')
-        frame `sr': frlink 1:1 firm_id, frame(`bt') generate(bt_link)
-        frame `sr': frget bt_score=score bt_rank=rank, from(bt_link)
-        frame `sr': list firm_id score bt_score rank bt_rank, noobs
-        frame drop `sr' `bt'
+            generate(bt_origin bt_destination) score(bs_origin bs_destination)
+        egen byte firm_tag = tag(origin)
+        list origin ss_origin bs_origin sr_origin bt_origin if firm_tag==1, noobs
+        correlate ss_origin bs_origin if firm_tag==1
 {* example_end}{...}
         restore
 {txt}{...}
@@ -474,14 +506,12 @@ all scores together would invent a comparison that the data do not identify.
         10 11 2
         11 10 1
         end
-        tempname ranking
-        ferank origin destination, method(sorkin) flow(moves) ///
-            component(all) frame(`ranking')
+        ferank origin destination, method(sorkin) flow(moves) component(all) ///
+            generate(origin_rank destination_rank) ///
+            score(origin_score destination_score) ///
+            componentid(origin_component destination_component)
         estat components
-        frame `ranking': sort component_id rank
-        frame `ranking': list component_id firm_id score rank, noobs ///
-            sepby(component_id)
-        frame drop `ranking'
+        list origin origin_component origin_score origin_rank, noobs
 {* example_end}{...}
         restore
 {txt}{...}
@@ -506,13 +536,11 @@ and the command's percentiles remain equal-firm percentiles.
         3 1 2 150
         1 3 1 200
         end
-        tempname ranking
         ferank origin destination, method(sorkin) flow(moves) ///
-            normalize(weighted) normweight(person_years) frame(`ranking')
-        frame `ranking': generate double person_years = ///
-            cond(firm_id==1, 200, cond(firm_id==2, 100, 150))
-        frame `ranking': summarize score [aw=person_years]
-        frame drop `ranking'
+            normalize(weighted) normweight(person_years) ///
+            score(origin_score destination_score)
+        egen byte firm_tag = tag(origin)
+        summarize origin_score if firm_tag==1 [aw=person_years]
 {* example_end}{...}
         restore
 {txt}{...}
@@ -522,8 +550,8 @@ and the command's percentiles remain equal-firm percentiles.
 {title:Stored results}
 
 {pstd}
-{cmd:ferank} is {cmd:eclass}, with firm-level point estimates in the result
-frame rather than a coefficient vector. Following successful estimation:
+{cmd:ferank} is {cmd:eclass}, with point estimates in your requested
+variables rather than a coefficient vector or a result frame. Following successful estimation:
 
   {it:Graph and panel counts}{col 35}Meaning
   {hline 76}
@@ -531,7 +559,12 @@ frame rather than a coefficient vector. Following successful estimation:
     {cmd:e(N_firms)}{col 35}firms in the full canonical graph
     {cmd:e(N_edges)}{col 35}canonical edges before component selection
     {cmd:e(N_components)}{col 35}all SCCs, including single-firm SCCs
-    {cmd:e(N_results)}{col 35}firms returned from selected components
+    {cmd:e(N_results)}{col 35}firms ranked in selected components
+    {cmd:e(N_components_estimated)}{col 35}number of separately estimated components
+    {cmd:e(N_mapped)}{col 35}selected rows with all input firms ranked
+    {cmd:e(N_unmapped)}{col 35}N_input minus N_mapped
+    {cmd:e(N_mapped_origin)}{col 35}selected rows with ranked origin (edge only)
+    {cmd:e(N_mapped_destination)}{col 35}selected rows with ranked destination (edge only)
     {cmd:e(valid_moves)}{col 35}constructed panel moves before filtering
     {cmd:e(gap_breaks)}{col 35}panel transitions exceeding maxgap()
     {cmd:e(missing_firm_breaks)}{col 35}panel rows with a missing firm
@@ -539,7 +572,7 @@ frame rather than a coefficient vector. Following successful estimation:
   {hline 76}
 
 {pstd}
-The last four scalars are panel diagnostics and are zero in edge mode.
+The panel move/break/continuation scalars are panel diagnostics and are zero in edge mode.
 They do not count only the selected component.
 
   {it:Numerical and timing scalars}{col 35}Meaning
@@ -552,6 +585,8 @@ They do not count only the selected component.
     {cmd:e(newton_residual)}{col 35}maximum Newton-system residual
     {cmd:e(line_search_steps)}{col 35}summed line-search reductions
     {cmd:e(threads)}{col 35}maximum effective native thread count
+    {cmd:e(tolerance)}{col 35}requested numerical tolerance
+    {cmd:e(maxiter)}{col 35}requested maximum iterations
     {cmd:e(time_input_graph)}{col 35}native input, graph and SCC seconds
     {cmd:e(time_solve_rank)}{col 35}native estimation and ranking seconds
     {cmd:e(time_store)}{col 35}plugin result-publication seconds
@@ -561,7 +596,7 @@ They do not count only the selected component.
 {pstd}
 Method-inapplicable numerical scalars may be zero; zero does not establish
 a certificate for another method. Native timings exclude Stata's preparation
-and final frame publication, so use an external Stata timer for complete
+and final variable matching/publication, so use an external Stata timer for complete
 command runtime. With {cmd:component(all)}, maximum diagnostics and summed
 likelihoods/line-search counts summarize multiple separate solves.
 
@@ -574,7 +609,10 @@ likelihoods/line-search counts summarize multiple separate solves.
     {cmd:e(component)}{col 35}requested component rule
     {cmd:e(normalization)}{col 35}requested score centering
     {cmd:e(engine)}{col 35}plugin or reference
-    {cmd:e(result_frame)}{col 35}name of firm-level result frame
+    {cmd:e(rankvars)}{col 35}generate() names, in input-variable order
+    {cmd:e(scorevars)}{col 35}score() names, in input-variable order
+    {cmd:e(percentilevars)}{col 35}percentile() names, in input-variable order
+    {cmd:e(componentvars)}{col 35}componentid() names, in input-variable order
     {cmd:e(convergence_certificate)}{col 35}success for an accepted estimate
     {cmd:e(linear_route)}{col 35}Bradley--Terry linear-solve route
     {cmd:e(estat_cmd)}{col 35}ferank_estat
@@ -582,8 +620,8 @@ likelihoods/line-search counts summarize multiple separate solves.
 
 {pstd}
 Use {cmd:ereturn list} to inspect the stored record immediately after
-estimation. Each new estimate replaces {cmd:e()}, even when earlier result
-frames are retained. After a failed command, inspect its error rather than
+estimation. Each new estimate replaces {cmd:e()}, while earlier generated
+variables remain in your dataset. After a failed command, inspect its error rather than
 treating a previous estimate in {cmd:e()} as the failed command's result.
 
 {marker troubleshooting}
@@ -608,9 +646,11 @@ graph. Relaxing tolerance reduces numerical accuracy; it is not an
 identification or reliability correction.
 
 {phang}
-{bf:Existing result frame, r(110):} Choose another {cmd:frame()} or request
-{cmd:replace}. An unsuccessful solve does not publish a partial result frame
-or replace the target frame.
+{bf:Existing output variable, r(110):} Choose a new name. The command never
+overwrites existing variables. Reusing a name across output options, giving
+one name instead of two for prepared flows, or omitting all rank/score/percentile
+outputs is an error, {cmd:r(198)}. Names are validated before estimation;
+unsuccessful calls do not create partial outputs.
 
 {phang}
 {bf:Plugin or installation failure:} Run {cmd:ferank, version} and

@@ -139,7 +139,7 @@ positive-flow edges $(j,i,M_{ij})$:
   comparison that destination $i$ wins against origin $j$
   \citep{bradley1952rank}.
 \end{itemize}
-Higher scores receive higher ranks. The two methods need not agree because
+Higher scores receive better ranks: rank 1 is best. The two methods need not agree because
 Sorkin uses global propagation through all paths, whereas Bradley--Terry asks
 how destinations perform conditional on the firm pairs that workers compare.
 
@@ -343,9 +343,9 @@ non-lazy equation. It requires both
   \lVert P\pi-\pi\rVert_{1}\leq\texttt{tolerance()},
 \end{equation}
 plus agreement with an alternative starting vector at a score gate based on
-$\sqrt{\texttt{tolerance()}}$. The result frame includes each firm's signed
-fixed-point residual, and \texttt{estat convergence} reports the aggregate
-certificate.
+$\sqrt{\texttt{tolerance()}}$. The command stores the maximum and L1
+residual norms in \texttt{e()}; firm-level signed residuals are not published
+as output variables.
 
 \section{The Bradley--Terry paired-comparison ranking}
 \label{sec:bt}
@@ -427,7 +427,7 @@ comparisons and ranks unchanged:
   \item \texttt{normalize(reference)} sets the firm supplied in
   \texttt{reference()} to zero.
 \end{itemize}
-Higher scores get higher ranks. Exact numerical ties receive the same
+Higher scores receive better ranks: rank 1 is best. Exact numerical ties receive the same
 deterministic midrank and percentile; firm identifiers order output rows but
 never break an econometric tie. Scores in different SCCs remain incomparable
 even if each is mean-normalized.
@@ -445,11 +445,11 @@ evidence outside this command.
 \begin{lstlisting}
 * Prepared directed edges
 ferank origin destination [if] [in], method(sorkin|bradleyterry) ///
-    [flow(weight) options]
+    generate(origin_rank destination_rank) [flow(weight) options]
 
 * Worker-firm panel
 ferank firm [if] [in], worker(worker_id) time(period) ///
-    method(sorkin|bradleyterry) [options]
+    method(sorkin|bradleyterry) generate(firm_rank) [options]
 \end{lstlisting}
 
 {\small
@@ -477,24 +477,49 @@ Option & Meaning and practical implication \\
 \texttt{threads(\#)} & Requests deterministic native worker threads. Zero lets the plugin choose. \\
 \texttt{lazy(\#)} & Sorkin only. Weight $\lambda\in(0,1]$ in \cref{eq:lazy}; default 0.5. It changes convergence behavior, not the target stationary vector. \\
 \texttt{engine(plugin|reference)} & Uses the production sparse plugin or a bounded, separately implemented dense reference engine. \\
-\texttt{frame(name)} & Names the firm-level result frame; default \texttt{ferank\_results}. \\
-\texttt{replace} & Permits replacement of an existing result frame, but only after the new estimation succeeds. \\
+\texttt{generate(newvars)} & Ordinal midrank, with 1 best and average ranks for exact ties. \\
+\texttt{score(newvars)} & Continuous normalized score; higher is better. Use for Pearson comparisons with AKM effects. \\
+\texttt{percentile(newvars)} & Equal-firm percentile within each component; 100 is best. \\
+\texttt{componentid(newvars)} & Deterministic estimated component ID, useful with \texttt{component(all)}. \\
+\texttt{verbose} & Also displays the full method-specific convergence certificate. \\
 \bottomrule
 \end{longtable}
 }
 
-The caller's data, observation order, and active frame are preserved. On
-success the result frame contains firm identifiers, method, component, score,
-rank, percentile, inflow, outflow, in-degree, and out-degree. Sorkin additionally
-returns $q_j$, $\pi_j$, and the firm-level fixed-point residual. The corresponding
-Bradley--Terry columns are missing by design.
+At least one of \texttt{generate()}, \texttt{score()}, or
+\texttt{percentile()} is required. Each supplied output option takes one
+new variable name in panel mode or two in prepared-flow mode, in
+origin--destination order. Names must be distinct and new. The command adds
+only those variables, preserving existing data, observation order and the
+active frame; it creates no result frame. Older \texttt{frame()} and
+\texttt{replace} calls must be migrated to named variable outputs.
 
-Useful postestimation commands are:
+The \texttt{if}/\texttt{in} restrictions select rows for both constructing
+flows and filling outputs. Other rows stay missing, even when their firm is
+ranked elsewhere. Selected panel rows receive their employer's estimate,
+including terminal observations and workers who never move. Firms outside
+selected components and missing employers receive missing values. In flow
+mode the two endpoints are mapped independently; a self-move or zero-flow
+row can receive values even though it contributes no comparison.
+
+The main display separates full-graph counts from selected firms and mapped
+rows, names every output variable, and reports convergence and native timing.
+These native timings exclude Stata preparation and matching; use a timer
+around the complete command for end-to-end performance. \texttt{e(N\_mapped)}
+counts selected panel rows with a ranked firm, or flow rows with both firms
+ranked. There is no observation-level \texttt{e(sample)} indicator.
+
+Useful postestimation commands for a panel are:
 \begin{lstlisting}
 estat convergence   // numerical certificate for the method just run
-estat components    // component rule and graph coverage
-frame ferank_results: list firm_id score rank percentile
+estat components    // component rule, graph coverage and mapped rows
+list firm firm_rank if firm_rank<=10
 \end{lstlisting}
+
+Firm values repeat across worker-year observations. Correlations on these
+rows therefore weight firms by their matched person-years. For an equal-firm
+comparison, keep one matched observation per firm. Score centering does not
+change this distinction or the equal-firm percentile definition.
 
 \subsection{Failure behavior is part of the scientific contract}
 
@@ -503,8 +528,9 @@ worker--time observations, mixed identifier storage types in edge mode,
 negative or nonfinite flows, invalid normalization weights, an absent reference
 firm, a requested component that does not qualify, a non-strong comparison
 graph for the selected estimate, separation, or a failed numerical certificate.
-The pre-existing result frame is retained unless a complete replacement
-succeeds.
+All requested values are staged privately and published together only
+after successful estimation and matching. A failed call leaves existing
+data unchanged and creates no partial output variables.
 
 \section{Worked Veneto example}
 \label{sec:veneto}
@@ -549,12 +575,12 @@ isid worker year
 ferank firm, worker(worker) time(year) method(sorkin) ///
     maxgap(2) component(largest) normalize(mean) ///
     tolerance(1e-10) maxiter(20000) threads(8) ///
-    frame(veneto_sorkin) replace
+    generate(sorkin_rank) score(sorkin_score) percentile(sorkin_pct)
 
 ferank firm, worker(worker) time(year) method(bradleyterry) ///
     maxgap(2) component(largest) normalize(mean) ///
     tolerance(1e-10) maxiter(20000) threads(8) ///
-    frame(veneto_bt) replace
+    generate(bt_rank) score(bt_score) percentile(bt_pct)
 \end{lstlisting}
 
 \begin{table}[htbp]
@@ -698,9 +724,10 @@ interpretation auditable:
   disagreement reveals the distinction between global propagation and
   pair-conditional wins.
   \item \textbf{Check certificates, not just ranks.} Save
-  \texttt{estat convergence}, graph coverage, and the result frame.
-  \item \textbf{Merge scores back explicitly.} Treat the result frame as a
-  firm-level dataset. Avoid assuming that every raw firm appears in it.
+  \texttt{estat convergence}, graph coverage, and generated variables.
+  \item \textbf{Check mapped coverage and weighting.} Missing generated values
+  identify selected observations without ranked firms. Use one observation
+  per firm for equal-firm summaries; worker-year rows induce person-year weights.
   \item \textbf{Name the estimand precisely.} Keep descriptive worker-flow
   rankings separate from wage effects and causal claims.
 \end{enumerate}
@@ -787,33 +814,32 @@ relabeling, periodic and nearly reducible chains, extreme logits, separation,
 deterministic repetition, and production/reference agreement are covered by
 the repository test suite.
 
-\section{Result-frame schema}
+\section{Generated-variable contract}
 
 {\small
 \begin{longtable}{@{}L{0.31\linewidth}L{0.61\linewidth}@{}}
 \toprule
-Variable & Meaning \\
+Option & Meaning \\
 \midrule
 \endfirsthead
 \toprule
-Variable & Meaning \\
+Option & Meaning \\
 \midrule
 \endhead
-\texttt{firm\_id} & Original numeric or string firm identifier. \\
-\texttt{method} & \texttt{sorkin} or \texttt{bradleyterry}. \\
-\texttt{component\_id} & Deterministic SCC identifier in the canonical graph. \\
-\texttt{in\_estimation\_component} & One for rows returned by the selected component rule. \\
-\texttt{score} & Additively normalized log revealed value or Bradley--Terry score. \\
-\texttt{rank} & Higher-is-better deterministic midrank. \\
-\texttt{percentile} & Rank percentile on the returned component. \\
-\texttt{inflow}, \texttt{outflow} & Weighted moves entering and leaving the firm. \\
-\texttt{in\_degree}, \texttt{out\_degree} & Counts of distinct incoming and outgoing firm neighbors. \\
-\texttt{revealed\_value\_q} & Sorkin $q_j$ from \cref{eq:q}; missing for Bradley--Terry. \\
-\texttt{stationary\_mass} & Sorkin $\pi_j$ from \cref{eq:stationary}; missing for Bradley--Terry. \\
-\texttt{fixed\_point\_residual} & Firm-level signed Sorkin residual; missing for Bradley--Terry. \\
+\texttt{generate()} & Descending ordinal midrank; 1 best; exact ties averaged. \\
+\texttt{score()} & Normalized log revealed value or Bradley--Terry score; higher better. \\
+\texttt{percentile()} & $100(J-\mathrm{rank})/(J-1)$ within each component; equal-firm weights. \\
+\texttt{componentid()} & Deterministic canonical SCC ID of the estimated firm. \\
 \bottomrule
 \end{longtable}
 }
+
+Each option takes one new name for a panel, or two names for prepared flows,
+origin first. All values are stored as doubles; unselected rows and unmatched
+firms have missing values. Component IDs do not make scores across disconnected
+groups comparable. Aggregate graph counts, mapping coverage and numerical
+certificates are stored in \texttt{e()}; no coefficient vector or public
+firm-level result frame is returned.
 
 \begingroup
 \small

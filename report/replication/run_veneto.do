@@ -27,24 +27,44 @@ postfile `diagnostics' str16 method double N_input N_firms N_results N_edges ///
 
 ferank firm, worker(worker) time(year) method(sorkin) maxgap(2) ///
     component(largest) normalize(mean) tolerance(1e-10) maxiter(20000) ///
-    threads(8) frame(veneto_sorkin) replace
+    threads(8) generate(sr_rank) score(sr_score) percentile(sr_pct) componentid(sr_component)
 post `diagnostics' ("sorkin") (e(N_input)) (e(N_firms)) (e(N_results)) ///
     (e(N_edges)) (e(N_components)) (e(valid_moves)) (e(gap_breaks)) ///
     (e(same_firm_continuations)) (e(iterations)) (e(residual_max)) ///
     (e(residual_l1)) (.) (.) (.) (.) (e(threads)) ///
     (e(time_input_graph)) (e(time_solve_rank)) (e(time_total))
-frame veneto_sorkin: export delimited using `"`output_dir'/sorkin.csv"', replace
+preserve
+keep if !missing(sr_score)
+bysort firm: keep if _n==1
+keep firm sr_rank sr_score sr_pct sr_component
+rename firm firm_id
+rename sr_rank rank
+rename sr_score score
+rename sr_pct percentile
+rename sr_component component_id
+export delimited using `"`output_dir'/sorkin.csv"', replace
+restore
 
 ferank firm, worker(worker) time(year) method(bradleyterry) maxgap(2) ///
     component(largest) normalize(mean) tolerance(1e-10) maxiter(20000) ///
-    threads(8) frame(veneto_bt) replace
+    threads(8) generate(bt_rank) score(bt_score) percentile(bt_pct) componentid(bt_component)
 post `diagnostics' ("bradleyterry") (e(N_input)) (e(N_firms)) (e(N_results)) ///
     (e(N_edges)) (e(N_components)) (e(valid_moves)) (e(gap_breaks)) ///
     (e(same_firm_continuations)) (e(iterations)) (.) (.) ///
     (e(ll)) (e(gradient_max)) (e(newton_residual)) ///
     (e(line_search_steps)) (e(threads)) (e(time_input_graph)) ///
     (e(time_solve_rank)) (e(time_total))
-frame veneto_bt: export delimited using `"`output_dir'/bradleyterry.csv"', replace
+preserve
+keep if !missing(bt_score)
+bysort firm: keep if _n==1
+keep firm bt_rank bt_score bt_pct bt_component
+rename firm firm_id
+rename bt_rank rank
+rename bt_score score
+rename bt_pct percentile
+rename bt_component component_id
+export delimited using `"`output_dir'/bradleyterry.csv"', replace
+restore
 
 postclose `diagnostics'
 use `"`output_dir'/diagnostics.dta"', clear

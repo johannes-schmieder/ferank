@@ -56,7 +56,8 @@ Licensed runs share a process lock and have a bounded timeout.
 
 Keep tests that establish orientation, graph identification, score
 normalization, numerical certification, reference agreement, determinism,
-data preservation and help-example behavior. The bounded independent dense
+generated-variable endpoint mapping, qualifier handling, atomic output
+publication, data/frame preservation and help-example behavior. The bounded independent dense
 oracles are validation code, rather than production fallback engines.
 
 ## Continuous integration

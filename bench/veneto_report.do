@@ -158,7 +158,7 @@ if "`sample_profile'"=="sorkin" {
     latexlog `report': writeln "\textbf{Restriction.} Start from `source_rows_fmt' observations and `source_firms_fmt' firms. Retain firms with at least 90 person-years whose worker is observed again later in the original panel (`eligible_firms_fmt' firms; `eligible_rows_fmt' rows), then select the largest directed component. All three estimators are refitted on that common firm sample, retaining terminal observations for AKM and person-year weights.\par"
 }
 latexlog `report': section "Complete-command timings"
-latexlog `report': writeln "The stopwatch starts immediately before the public estimation command and stops after it returns. AKM includes recovery of the firm effects and residuals; ferank includes full panel-to-flow construction and publication of its result frame. Import, validation, sample selection, output checks, merging, plots and LaTeX compilation are excluded. Repetition 0 is reported separately; repetitions 1--`measured_repetitions' rotate estimator order and determine the medians.\par"
+latexlog `report': writeln "The stopwatch starts immediately before the public estimation command and stops after it returns. AKM includes recovery of the firm effects and residuals; ferank includes full panel-to-flow construction and matching of rank, score, percentile and component values to the selected panel rows. Import, validation, sample selection, output checks, merging, plots and LaTeX compilation are excluded. Repetition 0 is reported separately; repetitions 1--`measured_repetitions' rotate estimator order and determine the medians.\par"
 preserve
 use `"`out'/timings.dta"', clear
 assert rc==0
@@ -317,7 +317,8 @@ latexlog `report': writeln ""
 latexlog `report': writeln "ferank firm, worker(worker) time(year)"
 latexlog `report': writeln "    method(sorkin|bradleyterry) maxgap(1)"
 latexlog `report': writeln "    component(largest) normalize(mean)"
-latexlog `report': writeln "    threads(T) tolerance(1e-10) frame(ranking)"
+latexlog `report': writeln "    threads(T) tolerance(1e-10) generate(flow_rank)"
+latexlog `report': writeln "    score(flow_score) percentile(flow_pct) componentid(flow_component)"
 latexlog `report': writeln "\end{verbatim}"
 latexlog `report': writeln "Entry point: \texttt{bench/veneto\_full.do}; report-only companion: \texttt{bench/veneto\_report.do}. Running the entry point with mode \texttt{report} regenerates the report from saved benchmark outputs without refitting the models. Tables are written through latexlog; all eight figures are generated in Stata and saved individually. The 20 bin means and firm counts are retained in \texttt{binned\_scatter\_data.csv}.\par"
 latexlog `report': close

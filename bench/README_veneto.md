@@ -48,7 +48,7 @@ Timing protocol:
 - Measured order rotates across AKM, Sorkin and Bradley--Terry. All calls are
   sequential, with the selected panel resident in Stata.
 - Complete-command time includes AKM saved firm effects/residuals and ferank's
-  panel construction/result frame. Import, sample checks, output validation,
+  panel construction and generated-variable matching. Import, sample checks, output validation,
   comparisons, graphics and report compilation have separate boundaries.
 - Initial calls are shown separately. Only the first thread setting starts
   before AKM is loaded. In `sorkin` mode, an untimed selection call already
@@ -110,3 +110,9 @@ The `report` mode of the do-file is equivalent. Report-only revisions use a
 separate `report_code/` tree and preserve all original benchmark snapshots,
 plugins and measured timings. A fresh strict pdflatex pass must succeed before
 the report is accepted; compilation logs remain available for layout checks.
+
+The current harness requests rank, score, percentile and component-ID variables
+on the panel. Command timers include matching these values back to all
+selected rows. Firm-level baseline files are extracted explicitly after each
+timer stops. Historical frame-output timings exclude this new mapping work
+and should not be labeled as timings of the current interface.

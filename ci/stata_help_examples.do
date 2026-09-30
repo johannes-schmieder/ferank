@@ -35,8 +35,7 @@ foreach example in edges panel compare components normalization {
         assert e(N_results)==4
         assert e(N_components)==2
     }
-    capture frame `e(result_frame)': count
-    assert _rc==111
+    assert `"`e(result_frame)'"' == ""
 }
 
 * Lookup and executed-code failures must restore caller data as well.

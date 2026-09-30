@@ -929,11 +929,17 @@ def main() -> int:
     if set(sorkin) != set(bt):
         raise RuntimeError("Sorkin and Bradley-Terry result firm sets differ")
     selected = set(sorkin)
+    # Flow diagnostics belong to this replication, not command output.
+    for row in sorkin.values():
+        row["inflow"] = 0.0
+        row["outflow"] = 0.0
     strength: Counter[int] = Counter()
     for (origin, destination), count in edge_counts.items():
         if origin in selected and destination in selected:
             strength[origin] += count
             strength[destination] += count
+            sorkin[origin]["outflow"] += count
+            sorkin[destination]["inflow"] += count
 
     effects, period_effect, r_squared, akm_rows, akm_movers, akm_iterations = pcg_akm(
         transitions, selected, strength

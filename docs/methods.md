@@ -84,6 +84,44 @@ Larger scores receive better ranks: rank 1 is the highest rank. Exact ties
 receive their deterministic midrank and identical percentiles. Firm ID orders
 output rows but never breaks an econometric tie.
 
+## Generated variables and sample mapping
+
+At least one of `generate()`, `score()` or `percentile()` is required.
+`generate()` writes descending ordinal midranks (1 is best), `score()` writes
+the normalized continuous score (higher is better), and `percentile()` writes
+`100*(J-rank)/(J-1)` within each estimated J-firm component. Percentiles use
+equal firm weights. `componentid()` optionally writes the deterministic
+canonical component ID; it is particularly useful with `component(all)`.
+
+Every supplied output option takes one distinct new name in panel mode or two
+in prepared-edge mode, in origin/destination order. Only rows marked by
+`if`/`in` are used for constructing flows and receive output values. Other
+rows stay missing even if the same firm was ranked elsewhere. Within marked
+rows, all occurrences of an estimated firm receive its value: panel stayers
+and terminal observations are included, as are zero-flow/self-move edge rows
+whose endpoint firms were estimated from other comparisons. Each edge endpoint
+is mapped independently; one may be missing while the other is ranked.
+
+Firms outside selected estimable components, firms with no retained comparisons,
+and missing panel employers receive missing outputs. There is no `e(sample)`:
+`e(N_mapped)` counts marked panel rows with an estimated employer, or marked
+edge rows with both endpoint firms ranked. Edge-specific counts report each
+endpoint separately. These mapping counts do not count identifying moves.
+
+Output names are validated before estimation. Values are staged privately and
+all requested variables are published together only after success. Existing
+variables, labels, observation order, active frame and unrelated frames are
+preserved. No public result frame, `frame()` or output-overwrite option exists.
+Previous frame-based do-files must be migrated to explicit variable outputs.
+The private scratch frame is always removed, including on failed estimation.
+
+`e()` stores graph coverage and numerical certificates, not a coefficient
+vector or a firm-level result table. Native timings exclude Stata preparation
+and variable matching/publication; complete-command benchmarks must time the
+whole Stata call. Repeating a firm's score across worker-year rows induces
+person-year weighting in unweighted observation-level summaries and
+correlations; use one observation per firm for equal-firm comparisons.
+
 ## Interpreting the two scores
 
 Sorkin asks for the stationary revealed value implied by the entire directed

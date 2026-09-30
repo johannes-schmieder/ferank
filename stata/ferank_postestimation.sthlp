@@ -14,7 +14,7 @@ help for {cmd:ferank postestimation} {right:(Johannes F. Schmieder)}
 {help ferank_postestimation##syntax:Syntax} |
 {help ferank_postestimation##components:Components} |
 {help ferank_postestimation##convergence:Convergence} |
-{help ferank_postestimation##results:Using the result frame}
+{help ferank_postestimation##results:Using generated variables}
 
 {marker syntax}
 {title:Syntax}
@@ -36,7 +36,9 @@ another model or using {cmd:ferank, version} or {cmd:ferank, selftest}.
 {pstd}
 Displays the number of strongly connected components in the full canonical
 directed graph ({cmd:e(N_components)}), the requested selection rule
-({cmd:e(component)}), and the number of returned firms ({cmd:e(N_results)}).
+({cmd:e(component)}), ranked firms ({cmd:e(N_results)}), separately estimated
+components ({cmd:e(N_components_estimated)}) and mapped observations
+({cmd:e(N_mapped)}).
 The component count includes single-firm components, which cannot be
 estimated. The display is a summary, not a table of every component or an
 observation-level sample indicator.
@@ -44,10 +46,10 @@ observation-level sample indicator.
 {pstd}
 {cmd:e(N_firms)} and {cmd:e(N_edges)} count firms and edges after flow
 aggregation and {cmd:minflow()} filtering, but before component selection.
-The result frame instead contains firms from selected estimable components,
-with component-internal flows and degrees. To inspect separately estimated
-groups after {cmd:component(all)}, sort that frame by {cmd:component_id} and
-{cmd:rank}. Scores and percentiles from different components are not
+Generated values are present only on selected rows whose firm belongs to an
+estimated component. In flow mode, endpoints are mapped independently; the
+display also gives origin and destination coverage. After {cmd:component(all)},
+use the variables saved with {cmd:componentid()} to distinguish groups. Scores and percentiles from different components are not
 comparable. See {help ferank##sample:Flow sample} for selection details.
 
 {marker convergence}
@@ -71,7 +73,7 @@ destinations. Production estimation requires both norms to be no greater
 than the requested {cmd:tolerance()}, and checks agreement from alternative
 starting masses. It does not accept a small iteration change alone.
 The bounded direct reference engine uses a component-size-scaled residual
-gate. The signed firm-level residuals are in {cmd:fixed_point_residual}.
+gate. Firm-level signed residuals are not published as variables.
 
 {dlgtab:Bradley--Terry}
 
@@ -99,28 +101,37 @@ precisely estimated in the population. Version 0.1 supplies no inference,
 {cmd:predict}, coefficient vector {cmd:e(b)}, or covariance matrix {cmd:e(V)}.
 
 {marker results}
-{title:Using the result frame}
+{title:Using generated variables}
 
 {pstd}
-The frame named in {cmd:e(result_frame)} contains firm IDs, component IDs,
-scores, ranks and percentiles. Use frame commands to inspect or save it
-without replacing the panel in memory:
+The variables requested through {cmd:generate()}, {cmd:score()},
+{cmd:percentile()} and {cmd:componentid()} are added to your current dataset.
+Their names are stored in {cmd:e(rankvars)}, {cmd:e(scorevars)},
+{cmd:e(percentilevars)} and {cmd:e(componentvars)}, respectively. Panel mode
+stores one name per option; prepared-flow mode stores origin then destination.
+
+{pstd}
+For a panel estimated with {cmd:generate(firm_rank) score(firm_score)}, use:
 
 {phang2}{cmd:. estat components}{p_end}
 {phang2}{cmd:. estat convergence}{p_end}
-{phang2}{cmd:. local ranking "`e(result_frame)'"}{p_end}
-{phang2}{cmd:. frame `ranking': sort component_id rank}{p_end}
-{phang2}{cmd:. frame `ranking': list firm_id score rank percentile if rank<=10}{p_end}
-{phang2}{cmd:. frame `ranking': save "firm_rankings.dta", replace}{p_end}
+{phang2}{cmd:. list firm firm_rank firm_score if firm_rank<=10}{p_end}
+{phang2}{cmd:. save "panel_with_rankings.dta", replace}{p_end}
 
 {pstd}
-The save command writes to your current working directory. Retained frames
-survive a subsequent estimate, but {cmd:e()} always describes only the most
-recent estimate. Retain distinct frames when comparing methods and match
-by the original {cmd:firm_id}. The
-{help ferank##examples:main help examples} show how to link the two frames.
+Save distinct names when comparing methods. Earlier generated variables
+survive a subsequent estimate, but {cmd:e()} describes only the most recent
+successful call. Use continuous scores for Pearson correlations with AKM.
+On worker-year rows, repeated firm scores induce person-year weighting;
+use one matched row per firm for an equal-firm comparison. The
+{help ferank##examples:main help examples} illustrate both methods.
+
+{pstd}
+Rows outside the original {cmd:if}/{cmd:in} restrictions remain missing, even
+if their firm was ranked. No out-of-sample attachment command is currently
+provided. There is no {cmd:e(sample)}, {cmd:predict} or result frame.
 
 {title:Also see}
 
 {pstd}
-{help ferank}, {help frames}, {help frlink}, {help frget}, {help estat}{p_end}
+{help ferank}, {help generate}, {help egen}, {help estat}{p_end}

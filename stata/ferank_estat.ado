@@ -6,10 +6,23 @@ program define ferank_estat
     local subcommand = lower(strtrim(`"`subcommand'"'))
     if `"`subcommand'"' == "components" {
         syntax [, *]
-        di as text "Canonical graph components"
-        di as text "  total components: " as result %10.0fc e(N_components)
-        di as text "  requested rule:  " as result "`e(component)'"
-        di as text "  result firms:     " as result %10.0fc e(N_results)
+        di as text _n "Graph coverage and component selection"
+        di as text "{hline 64}"
+        di as text "Canonical graph firms" _col(37) as result %12.0fc e(N_firms)
+        di as text "Canonical directed edges" _col(37) as result %12.0fc e(N_edges)
+        di as text "Graph components (all sizes)" _col(37) as result %12.0fc e(N_components)
+        di as text "Selection rule" _col(37) as result "`e(component)'"
+        di as text "Estimated components" _col(37) as result %12.0fc e(N_components_estimated)
+        di as text "Ranked firms" _col(37) as result %12.0fc e(N_results)
+        di as text "Input rows" _col(37) as result %12.0fc e(N_input)
+        di as text "Rows with all input firms ranked" _col(37) as result %12.0fc e(N_mapped)
+        di as text "Remaining selected rows" _col(37) as result %12.0fc e(N_unmapped)
+        if `"`e(input_mode)'"' == "edge" {
+            di as text "Rows with ranked origin" _col(37) as result %12.0fc e(N_mapped_origin)
+            di as text "Rows with ranked destination" _col(37) as result %12.0fc e(N_mapped_destination)
+        }
+        di as text "{hline 64}"
+        di as text "Graph counts precede selection; mapped rows describe attached firm values."
     }
     else if `"`subcommand'"' == "convergence" {
         syntax [, *]

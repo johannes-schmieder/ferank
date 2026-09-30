@@ -14,8 +14,7 @@ else
   "$PYTHON_BIN" "$REPORT/replication/stage_veneto_example.py"
 fi
 
-"$ROOT/scripts/build_macos_native.sh"
-cp "$ROOT/dist/ferank_macos.plugin" "$ROOT/stata/ferank_macos.plugin"
+"$PYTHON_BIN" "$ROOT/ci/check_stata_package.py"
 "$STATA_BIN" -q -b do "$REPORT/replication/run_veneto.do" \
   "$ROOT" "$REPORT/data/external/kss_example_1999_2001.csv" "$REPORT/output" \
   "$REPORT/replication/run_veneto.log"

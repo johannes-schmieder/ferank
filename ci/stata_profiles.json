@@ -7,6 +7,7 @@
       "timeout_seconds": 1200,
       "required_log_markers": [
         "FERANK STATA HELP EXAMPLES PASS",
+        "FERANK GENERATED VARIABLES AND TRANSACTIONS PASS",
         "FERANK STATA PACKAGE QUICK PASS"
       ]
     }

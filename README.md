@@ -14,8 +14,9 @@ Two methods are available:
   A move from firm A to firm B counts as a win for B over A.
 
 Higher scores mean better-ranked firms. Rank 1 is best; exact ties receive
-average ranks. Results are returned in a separate Stata frame, leaving the
-input data unchanged. These are point estimates from the supplied flows.
+average ranks. Request new variables with `generate()` for ranks, `score()` for continuous
+scores and `percentile()` for equal-firm percentiles. The command adds only
+those variables, preserving existing data and observation order. These are point estimates from the supplied flows.
 Interpreting them as worker preferences requires an appropriate transition
 sample and assumptions about workers' opportunities. The command does not
 estimate wage effects, amenities or Sorkin's compensating-differential
@@ -75,17 +76,17 @@ input long worker int year long firm
 6 2001 2
 end
 
-tempname ranking
-ferank firm, worker(worker) time(year) method(sorkin) frame(`ranking')
+ferank firm, worker(worker) time(year) method(sorkin) ///
+    generate(sorkin_rank) score(sorkin_score) percentile(sorkin_pct)
 estat convergence
-frame `ranking': sort rank
-frame `ranking': list firm_id score rank percentile, noobs
-frame drop `ranking'
+list worker year firm sorkin_rank sorkin_score sorkin_pct, noobs sepby(worker)
 restore
 ```
 
 With your own panel, substitute your employer, worker and time variables.
-A move is formed between consecutive observations when the employer changes
+Each selected row receives its employer's estimated values, including rows
+for workers who never move when their employer is ranked. A move is formed
+between consecutive observations when the employer changes
 and the gap is at most `maxgap(1)`, the default. Missing employers break the
 chain. Construct your own move table when spells, concurrent jobs or
 intervening unemployment require different transition rules.
@@ -108,14 +109,18 @@ input double(origin destination moves)
 1 3 1
 end
 
-tempname ranking
-ferank origin destination, method(bradleyterry) flow(moves) frame(`ranking')
+ferank origin destination, method(bradleyterry) flow(moves) ///
+    generate(origin_rank destination_rank) ///
+    score(origin_score destination_score)
 estat convergence
-frame `ranking': sort rank
-frame `ranking': list firm_id score rank percentile, noobs
-frame drop `ranking'
+list origin destination moves origin_rank destination_rank, noobs
 restore
 ```
+
+Every requested output option takes **one new variable in panel mode** and
+**two in flow-table mode, origin first and destination second**. At least one
+of `generate()`, `score()` or `percentile()` is required; requesting only
+`score()` is useful when comparing continuous scores with AKM effects.
 
 Both methods accept either input format. Use `method(sorkin)` on the same
 move table to compare rankings. Without `flow()`, each row represents one
@@ -127,12 +132,29 @@ Scores are comparable within a **strongly connected component**: a group
 where directed moves provide a path from every firm to every other firm.
 The default selects the largest such group. Use `estat components` to check
 coverage. With `component(all)`, each group's scores and ranks are separate.
+Save their group labels with `componentid(firm_component)` in panel mode or
+`componentid(origin_component destination_component)` with prepared flows.
 
 The default normalization centers scores at zero. It leaves ranks unchanged.
 Percentiles run from 0 to 100, with higher values indicating better ranks.
 `estat convergence` checks numerical accuracy; it does not provide sampling
-standard errors. An existing result frame is protected unless you request
-`replace`.
+standard errors.
+
+`if` and `in` select rows both for constructing flows and for filling the new
+variables. Other rows remain missing, even if their employers are ranked.
+Selected rows whose employers are outside the estimated components also have
+missing values. In flow tables, each endpoint is matched independently.
+
+Ranks start at 1 for the best firm; tied firms receive their average rank.
+Percentiles use equal firm weights even when scores use weighted centering.
+Repeating scores across a panel means a correlation on worker-year rows
+weights firms by their matched person-years. Keep one row per firm for an
+equal-firm comparison.
+
+Output variable names must be new and distinct. Failed estimation creates no
+partial outputs. No result frame is created, and the former `frame()` and
+`replace` options are no longer supported; update older do-files to request
+named variables. Retain distinct names when comparing methods.
 
 ## Documentation and support
 

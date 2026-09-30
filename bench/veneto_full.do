@@ -115,17 +115,18 @@ capture noisily {
                maxgap(1) prevents bridging an excluded annual observation. */
             ferank firm, worker(worker) time(year) method(sorkin) maxgap(1) ///
                 component(largest) normalize(mean) tolerance(1e-10) ///
-                threads(`first_threads') frame(sample_component) replace
+                threads(`first_threads') score(selection_score)
             assert e(N_results)==7238
             scalar selection_loads_ferank = 1
-            tempfile selected_firms
-            frame sample_component: rename firm_id firm
-            frame sample_component: keep firm score
-            frame sample_component: save `"`out'/sample_scc_reference.dta"', replace
-            frame sample_component: keep firm
-            frame sample_component: save `selected_firms', replace
-            merge m:1 firm using `selected_firms', keep(match) nogen
-            frame drop sample_component
+            preserve
+            keep if !missing(selection_score)
+            bysort firm: keep if _n==1
+            keep firm selection_score
+            rename selection_score score
+            save `"`out'/sample_scc_reference.dta"', replace
+            restore
+            keep if !missing(selection_score)
+            drop selection_score
             assert _N==2973781
             assert nonsingleton_years>=90
         }
@@ -182,7 +183,9 @@ capture noisily {
                     local index = mod(`position'-1+`rep',3)+1
                     local method : word `index' of `methods'
                     capture drop akm_firm akm_residual
-                    capture frame drop ranking
+                    foreach output in flow_rank flow_score flow_pct flow_component {
+                        capture drop `output'
+                    }
                     ereturn clear
                     timer clear 91
                     display as text "VENETO_CALL_START method=`method' threads=`nt' rep=`rep' order=`position' `c(current_time)'"
@@ -194,7 +197,8 @@ capture noisily {
                     else {
                         capture noisily ferank firm, worker(worker) time(year) ///
                             method(`method') maxgap(1) component(largest) normalize(mean) ///
-                            tolerance(1e-10) threads(`nt') frame(ranking) replace
+                            tolerance(1e-10) threads(`nt') generate(flow_rank) ///
+                            score(flow_score) percentile(flow_pct) componentid(flow_component)
                     }
                     local call_rc = _rc
                     timer off 91
@@ -259,11 +263,15 @@ capture noisily {
                         assert `"`e(convergence_certificate)'"' != ""
                         ereturn list
                         preserve
-                        frame ranking: assert !missing(firm_id,score,rank,percentile)
-                        frame ranking: isid firm_id
-                        frame ranking: save `current', replace
-                        use `current', clear
-                        rename firm_id firm
+                        keep if !missing(flow_score)
+                        keep firm flow_score flow_rank flow_pct flow_component
+                        bysort firm: keep if _n==1
+                        rename flow_score score
+                        rename flow_rank rank
+                        rename flow_pct percentile
+                        rename flow_component component_id
+                        assert !missing(firm,score,rank,percentile)
+                        isid firm
                         quietly save `current', replace
                     }
                     if `rep'==0 & `nt'==`first_threads' {

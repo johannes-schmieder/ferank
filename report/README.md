@@ -16,7 +16,7 @@ report/replication/run_report.sh
 
 Set `FERANK_REPORT_PYTHON` or `STATA_BIN` to override the executable paths.
 
-The driver hash-verifies and stages the public example, builds the native
+The driver hash-verifies and stages the public example, checks the packaged Mac
 plugin, runs both estimators in Stata, regenerates aggregate vector figures and
 tables, and compiles the PDF. Set `FERANK_VENETO_SOURCE` to an existing copy of
 the CSV or CRAN source archive to build without downloading the data. Raw data,
@@ -39,3 +39,8 @@ report/replication/build_mobile_html.sh
 The output is `report/output/ferank_technical_report_mobile.html`. Styles,
 figures, and MathML equations are embedded in the single file; wide tables and
 equations scroll within the page on narrow screens.
+
+The replication uses the current generated-variable interface. It extracts
+one matched observation per firm for tables and figures, and reconstructs
+component-internal flow totals from the teaching panel. The command itself
+creates no result frame.
