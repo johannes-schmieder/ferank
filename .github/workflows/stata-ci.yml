@@ -1,4 +1,4 @@
-name: Rust and Stata checks
+name: Rust and package checks
 
 on:
   workflow_dispatch:
@@ -27,7 +27,6 @@ env:
 jobs:
   hosted-rust:
     name: Rust and Python / hosted Linux
-    if: ${{ github.event_name == 'pull_request' || github.event.repository.private != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,117 +39,8 @@ jobs:
       - name: Test CI receipt machinery
         run: python3 -m unittest discover -s ci/tests -p 'test_*.py'
 
+      - name: Validate the Stata distribution
+        run: python3 ci/check_stata_package.py
+
       - name: Run Rust checks
         run: bash ci/run_rust_quick.sh
-
-  mac-ci:
-    name: Licensed Mac Stata and Rust
-    permissions:
-      contents: write
-    if: ${{ github.event.repository.private == true && github.event_name != 'pull_request' }}
-    runs-on: [self-hosted, macOS, ARM64, stata-mp, ferank]
-    timeout-minutes: 30
-    env:
-      STATA_BIN: /Applications/Stata/StataMP.app/Contents/MacOS/stata-mp
-      STATA_PROFILE: quick
-    steps:
-      - name: Check out tested commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-
-      - name: Test CI receipt machinery
-        run: /usr/bin/python3 -m unittest discover -s ci/tests -p 'test_*.py'
-
-      - name: Run licensed Stata profile
-        if: ${{ always() }}
-        run: /bin/bash ci/run_stata_ci.sh "$STATA_PROFILE"
-
-      - name: Run quick Rust checks
-        if: ${{ always() }}
-        run: /bin/bash ci/record_rust_quick.sh
-
-      - name: Add Rust result to the exact-SHA receipt
-        if: ${{ always() }}
-        run: >-
-          /usr/bin/python3 ci/augment_ci_receipt.py
-          .ci/stata/run/receipt.json
-          .ci/stata/run/rust-quick.status
-
-      - name: Validate combined receipt
-        if: ${{ always() }}
-        run: >-
-          /usr/bin/python3 ci/check_stata_receipt.py
-          .ci/stata/run/receipt.json
-          --expect-tested-sha "$GITHUB_SHA"
-          --expect-profile "$STATA_PROFILE"
-          --require-success
-          --require-rust-success
-
-      - name: Commit immutable receipt and guarded latest pointer
-        if: ${{ always() }}
-        shell: bash
-        env:
-          RECEIPT: ${{ github.workspace }}/.ci/stata/run/receipt.json
-        run: |
-          set -euo pipefail
-          /usr/bin/python3 ci/check_stata_receipt.py "$RECEIPT" \
-            --expect-tested-sha "$GITHUB_SHA" --expect-profile "$STATA_PROFILE"
-          branch="$GITHUB_REF_NAME"
-          result_path=".ci/stata/results/$GITHUB_SHA.json"
-          publish_tree=""
-
-          cleanup_publish_tree() {
-            if [[ -n "$publish_tree" ]]; then
-              cd "$GITHUB_WORKSPACE"
-              git worktree remove --force "$publish_tree" 2>/dev/null || true
-              git worktree prune
-              publish_tree=""
-            fi
-          }
-          trap cleanup_publish_tree EXIT
-
-          for attempt in 1 2 3; do
-            git fetch origin "$branch"
-            publish_tree="$RUNNER_TEMP/ferank-publish-$attempt"
-            git worktree add --detach "$publish_tree" "origin/$branch"
-            cd "$publish_tree"
-
-            mkdir -p .ci/stata/results
-            cp "$RECEIPT" "$result_path"
-
-            if git merge-base --is-ancestor "$GITHUB_SHA" HEAD &&
-               git diff --quiet "$GITHUB_SHA..HEAD" -- . \
-                 ':(exclude).ci/stata/results/**' \
-                 ':(exclude).ci/stata/latest.json'; then
-              cp "$RECEIPT" .ci/stata/latest.json
-            fi
-
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add "$result_path" .ci/stata/latest.json 2>/dev/null || git add "$result_path"
-
-            if git diff --cached --quiet; then
-              exit 0
-            fi
-
-            git commit -m "ci(stata): record ${GITHUB_SHA:0:12} [skip ci]"
-            if git push origin "HEAD:refs/heads/$branch"; then
-              exit 0
-            fi
-
-            cleanup_publish_tree
-          done
-
-          echo "receipt publication lost three branch update races" >&2
-          exit 1
-
-      - name: Upload optional Mac CI logs
-        if: ${{ always() }}
-        continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: stata-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .ci/stata/run/
-          if-no-files-found: error
-          retention-days: 7

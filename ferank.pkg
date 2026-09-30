@@ -1,0 +1,18 @@
+v 3
+d ferank: firm rankings from directed worker flows
+d Version 0.1.0 alpha; Stata 18 or later on macOS.
+d Johannes F. Schmieder, Boston University.
+F stata/ferank_LICENSE.txt
+F stata/ferank_NOTICE.txt
+F stata/ferank_macos.plugin.sha256
+f stata/ferank.ado
+f stata/_ferank_load.ado
+f stata/ferank_estat.ado
+f stata/ferank_run.ado
+f stata/ferank.sthlp
+f stata/ferank_postestimation.sthlp
+G MACARM64 stata/ferank_macos.plugin
+G OSX.ARM64 stata/ferank_macos.plugin
+G MACINTEL64 stata/ferank_macos.plugin
+G OSX.X8664 stata/ferank_macos.plugin
+h ferank_macos.plugin

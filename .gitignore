@@ -13,6 +13,7 @@ __pycache__/
 /report/build/
 /literature/
 /stata/*.plugin
+!/stata/ferank_macos.plugin
 
 # Research records and estimation outputs are never source artifacts.
 *.dta

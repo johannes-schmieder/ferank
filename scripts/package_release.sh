@@ -16,10 +16,12 @@ done
 rm -rf "$PACKAGE_ROOT"
 mkdir -p "$PACKAGE_ROOT/stata" "$PACKAGE_ROOT/source"
 cp "$ROOT"/stata/*.ado "$ROOT"/stata/*.sthlp "$ROOT"/stata/ferank.pkg \
-  "$ROOT"/stata/stata.toc "$PACKAGE_ROOT/stata/"
+  "$ROOT"/stata/stata.toc "$ROOT"/stata/ferank_*.txt \
+  "$ROOT"/stata/ferank_macos.plugin.sha256 "$PACKAGE_ROOT/stata/"
 cp "$ROOT"/dist/ferank_*.plugin "$PACKAGE_ROOT/stata/"
 cp "$ROOT/LICENSE" "$ROOT/NOTICE.md" "$ROOT/README.md" "$ROOT/CONTRIBUTING.md" \
   "$PACKAGE_ROOT/"
+cp "$ROOT/ferank.pkg" "$ROOT/stata.toc" "$PACKAGE_ROOT/"
 cp -R "$ROOT/crates" "$ROOT/plugin" "$ROOT/vendor" "$ROOT/scripts" "$ROOT/docs" "$ROOT/Cargo.toml" \
   "$ROOT/Cargo.lock" "$ROOT/rust-toolchain.toml" "$PACKAGE_ROOT/source/"
 

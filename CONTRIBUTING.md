@@ -6,6 +6,25 @@ Its input contract and estimands are specified in
 construction, component selection, normalization or numerical acceptance
 must update the help and pass the independent reference checks.
 
+## Build from source
+
+The README's `net install` route includes a precompiled Mac plugin. To build
+it yourself, install Git, Xcode command-line tools, and Rust through rustup:
+
+```sh
+git clone https://github.com/johannes-schmieder/ferank.git
+cd ferank
+rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy
+rustup target add --toolchain 1.85.1 aarch64-apple-darwin x86_64-apple-darwin
+bash scripts/build_macos_universal.sh
+cp dist/ferank_macos.plugin stata/
+```
+
+Use `adopath ++ "/absolute/path/to/ferank/stata"` in Stata for your own build.
+The tracked Mac binary is a distribution artifact; rebuilding it does not
+by itself qualify it for publication. Refresh its checksum and repeat the
+licensed package and isolated-install tests before replacing it in Git.
+
 ## Build and test
 
 The Rust workspace is pinned to 1.85.1 and has no external Rust dependencies.
@@ -42,30 +61,33 @@ oracles are validation code, rather than production fallback engines.
 
 ## Continuous integration
 
-Public pushes and pull requests run Rust and Python checks on a
-GitHub-hosted Linux runner. They do not require Stata or access to a
+Pushes and pull requests run Rust, Python and distribution-manifest checks
+on a GitHub-hosted Linux runner. They do not require Stata or access to a
 maintainer's machine.
 
-The licensed Mac lane, including its receipt-publication step, is guarded
-to run only for private-repository pushes or manual events. Pull requests
-never run on that self-hosted machine. Making this repository public disables
-that job; licensed qualification must then run locally or in a separate
-trusted private CI repository. Do not remove those guards to test public PR code.
-
-Before making the repository public, remove its personal Mac runner registration
-and stop its local runner service. A pull request can edit a workflow, so a job
-condition does not safely isolate an attached personal machine. Keep licensed
-Stata automation in a separate trusted private repository or run it locally.
+Licensed Stata qualification runs locally or in a separate trusted private
+CI repository. The personal Mac runner was detached before this repository
+was made public. Never register it here or run public PR code on that machine.
 See [GitHub's self-hosted runner security guidance](https://docs.github.com/en/actions/reference/security/secure-use).
 
-Private CI publishes immutable receipts at
+Historical private CI published immutable receipts at
 `.ci/stata/results/<tested-sha>.json`. A qualified checkpoint requires the
 exact source SHA and successful overall, Stata and Rust statuses. The
 `latest.json` file is only a convenience pointer. Historical receipts are
 retained as verification evidence; they do not qualify later source changes.
-The tested job publishes its validated receipt directly to Git; optional
-log artifacts have a seven-day retention and are not a qualification gate.
-An artifact-storage quota therefore cannot prevent receipt publication.
+Keep those records as historical evidence. Current local runs write evidence
+under the ignored `.ci/stata/run/` directory.
+
+The installer can be tested without changing the user's normal ado directory:
+
+```sh
+python3 ci/test_stata_install.py --output /tmp/ferank-install-test
+```
+
+It runs the exact README install block and both examples in a fresh licensed
+Stata process, then executes all five help examples. To test a staged local
+package, pass `--source /absolute/path/to/package`; the default source is the
+public GitHub URL. The output directory must not already exist.
 
 ## Benchmarks and report
 
