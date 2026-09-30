@@ -4,12 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$ROOT/target/native-macos-universal"
 DIST="$ROOT/dist"
-RUSTUP_BIN="${RUSTUP_BIN:-/opt/homebrew/bin/rustup}"
+RUSTUP_BIN="$(command -v "${RUSTUP_BIN:-rustup}")"
 TOOLCHAIN="${RUST_TOOLCHAIN:-1.85.1}"
 TARGETS=(aarch64-apple-darwin x86_64-apple-darwin)
 
 mkdir -p "$BUILD" "$DIST"
-RUSTC_BIN="$($RUSTUP_BIN which --toolchain "$TOOLCHAIN" rustc)"
+RUSTC_BIN="$("$RUSTUP_BIN" which --toolchain "$TOOLCHAIN" rustc)"
 export PATH="$(dirname "$RUSTC_BIN"):/usr/bin:/bin:/usr/sbin:/sbin"
 cd "$ROOT"
 

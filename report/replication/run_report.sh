@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPORT="$ROOT/report"
 STATA_BIN="${STATA_BIN:-/Applications/Stata/StataMP.app/Contents/MacOS/stata-mp}"
-PYTHON_BIN="${FERANK_REPORT_PYTHON:-/Users/johannes/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3}"
+PYTHON_BIN="${FERANK_REPORT_PYTHON:-python3}"
 VENETO_SOURCE="${FERANK_VENETO_SOURCE:-}"
 
 mkdir -p "$REPORT/output" "$REPORT/build" "$REPORT/data/external"

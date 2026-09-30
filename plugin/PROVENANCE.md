@@ -2,7 +2,10 @@
 
 `stplugin.c` and `stplugin.h` are version 3.0 of StataCorp's public plugin
 interface files, copied from the owner's locally qualified `fereg` plugin
-source on 2026-08-28. Their SHA-256 values are:
+source on 2026-08-28. StataCorp publishes the interface sources at
+[`stplugin.c`](https://www.stata.com/plugins/stplugin.c) and
+[`stplugin.h`](https://www.stata.com/plugins/stplugin.h); their copyright
+headers are retained. The bundled files have these SHA-256 values:
 
 ```text
 7f954e5985c53bb80533d0cbd5df794c0aaa94de2a69013e3b8c610d9011c69a  stplugin.c

@@ -5,11 +5,16 @@ file. It explains the graph terminology, the Sorkin and Bradley--Terry
 estimators, the command contract, diagnostics, and a reproducible application
 to the public Veneto-based `LeaveOutKSS` teaching extract.
 
-Build the complete report on the licensed macOS development host:
+To build the report, use Python 3 with ReportLab, a TeX installation with
+`latexmk`, and licensed Stata on macOS. Install the Python dependency in your
+chosen environment, then run:
 
 ```sh
+python3 -m pip install -r report/requirements.txt
 report/replication/run_report.sh
 ```
+
+Set `FERANK_REPORT_PYTHON` or `STATA_BIN` to override the executable paths.
 
 The driver hash-verifies and stages the public example, builds the native
 plugin, runs both estimators in Stata, regenerates aggregate vector figures and

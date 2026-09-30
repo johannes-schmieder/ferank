@@ -1,24 +1,12 @@
 {
   "schema_version": 1,
   "profiles": {
-    "version": {
-      "suite": "ci/stata_version.do",
-      "arguments": [],
-      "timeout_seconds": 300,
-      "required_log_markers": ["STATA_CI_OK"]
-    },
-    "smoke": {
-      "suite": "ci/stata_smoke.do",
-      "arguments": [],
-      "timeout_seconds": 600,
-      "required_log_markers": ["FERANK STATA MATA SMOKE PASS"]
-    },
     "quick": {
       "suite": "ci/stata_package_quick.do",
       "arguments": [],
       "timeout_seconds": 1200,
       "required_log_markers": [
-        "FERANK STATA MATA SMOKE PASS",
+        "FERANK STATA HELP EXAMPLES PASS",
         "FERANK STATA PACKAGE QUICK PASS"
       ]
     }

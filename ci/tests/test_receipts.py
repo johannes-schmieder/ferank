@@ -29,7 +29,7 @@ class ReceiptTests(unittest.TestCase):
     @staticmethod
     def status(stata_rc: int) -> str:
         return (
-            "schema_version=1\nprofile=smoke\n"
+            "schema_version=1\nprofile=quick\n"
             f"stata_rc={stata_rc}\n"
             "stata_version=18\nstata_edition=MP\nstata_os=MacOSX\n"
             "stata_machine_type=Mac (Apple Silicon)\nstata_processors=8\n"
@@ -55,8 +55,8 @@ class ReceiptTests(unittest.TestCase):
                 json.dumps(
                     {
                         "profiles": {
-                            "smoke": {
-                                "suite": "ci/stata_smoke.do",
+                            "quick": {
+                                "suite": "ci/stata_package_quick.do",
                                 "required_log_markers": ["PASS_MARKER"],
                             }
                         }
@@ -72,7 +72,7 @@ class ReceiptTests(unittest.TestCase):
                     "--profile-config",
                     str(root / "profiles.json"),
                     "--profile",
-                    "smoke",
+                    "quick",
                     "--process-json",
                     str(root / "process.json"),
                     "--status-file",
@@ -140,7 +140,7 @@ class AugmentTests(unittest.TestCase):
             status.write_text(
                 "schema_version=1\n"
                 f"rust_status={'success' if rust_rc == 0 else 'failure'}\n"
-                f"rust_rc={rust_rc}\nrust_mode=toolchain-smoke\n"
+                f"rust_rc={rust_rc}\nrust_mode=repository\n"
                 "rust_toolchain=stable-aarch64-apple-darwin\n"
                 "rustc_version=rustc 1.97.1\ncompleted=1\n",
                 encoding="utf-8",
@@ -162,7 +162,7 @@ class AugmentTests(unittest.TestCase):
         value = self.augment(0)
         self.assertEqual(value["status"], "success")
         self.assertEqual(value["rust_status"], "success")
-        self.assertEqual(value["rust_mode"], "toolchain-smoke")
+        self.assertEqual(value["rust_mode"], "repository")
 
     def test_rust_failure_changes_combined_status(self) -> None:
         value = self.augment(7)

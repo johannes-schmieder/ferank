@@ -80,9 +80,9 @@ not reported as convergence.
 constant within firm. `normalize(reference)` sets `reference()` to zero. These
 rules shift scores but do not alter fitted comparisons.
 
-Higher scores receive higher ranks. Exact ties receive their deterministic
-midrank and identical percentiles. Firm ID orders output rows but never breaks
-an econometric tie.
+Larger scores receive better ranks: rank 1 is the highest rank. Exact ties
+receive their deterministic midrank and identical percentiles. Firm ID orders
+output rows but never breaks an econometric tie.
 
 ## Interpreting the two scores
 

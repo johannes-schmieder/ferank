@@ -3,6 +3,7 @@ p ferank 0.1.0 firm rankings from directed worker flows
 f ferank.ado
 f _ferank_load.ado
 f ferank_estat.ado
+f ferank_run.ado
 f ferank.sthlp
 f ferank_postestimation.sthlp
 f ferank_macos.plugin

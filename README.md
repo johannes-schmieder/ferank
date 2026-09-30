@@ -1,91 +1,165 @@
 # ferank
 
-`ferank` is a Stata 18 package for firm rankings constructed from directed
-worker flows. Version 0.1 implements two point estimators over one canonical
-flow graph:
+**Rank firms from the jobs workers move between, in Stata.**
 
-- the Sorkin revealed-preference fixed point; and
-- a Bradley--Terry likelihood in which the destination firm wins each observed
-  origin-to-destination comparison.
+`ferank` estimates Sorkin and Bradley–Terry firm rankings from observed
+worker moves. Give it either a worker-period panel or a table of moves from
+origin to destination firms. It returns firm scores, ranks and percentiles
+in a separate Stata frame, leaving your data unchanged.
 
-Both methods accept prepared directed edges or a narrow worker--firm period
-panel. Successful estimates create a firm-level Stata frame with normalized
-scores, deterministic midranks, percentiles, graph coverage, and explicit
-numerical certificates. The caller's data are not modified.
+The methods describe revealed preference in worker flows. They can be compared
+with wage effects estimated separately, but they do not estimate wages,
+amenities or a compensating-wage decomposition. Higher scores mean better
+ranked firms: **rank 1 is best**, and percentile 100 is highest.
 
-## Examples
+Version 0.1.0 is **alpha software**, currently available as source.
+It requires Stata 18 or later.
+The compiled plugin has passed licensed Stata tests on Apple Silicon Macs.
+The Mac build also contains an Intel slice; licensed Intel Mac, Linux and
+Windows qualification is still pending. There is no SSC installation or
+prebuilt release download yet.
 
-Prepared edges:
+## Install from source on a Mac
+
+You need Git, [Rust installed through rustup](https://rustup.rs/), and Xcode's
+command-line tools. In Terminal:
+
+```sh
+git clone https://github.com/johannes-schmieder/ferank.git
+cd ferank
+rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy
+rustup target add --toolchain 1.85.1 aarch64-apple-darwin x86_64-apple-darwin
+bash scripts/build_macos_universal.sh
+cp dist/ferank_macos.plugin stata/
+```
+
+In Stata, replace the path below with the absolute path to your clone's
+`stata` folder. Add this line to your do-file so the command is available
+in later sessions:
 
 ```stata
-ferank origin destination, method(sorkin) flow(moves) ///
-    frame(sorkin_ranking) replace
+adopath ++ "/path/to/ferank/stata"
+ferank, selftest
+help ferank
+```
 
+The selftest checks that Stata can load and call the plugin. The ado files,
+help files and plugin must come from the same source version.
+
+## Try a complete example
+
+Run the prepared-flow example embedded in the help file:
+
+```stata
+ferank_run edges using ferank.sthlp
+```
+
+It creates six directed flows among three firms, estimates Sorkin scores,
+prints the convergence diagnostics and lists the rankings. Your existing
+data are restored and the temporary result frame is removed afterward.
+The help file has four further clickable examples, including a worker-year
+panel and a comparison of both methods.
+
+## Use your own data
+
+### A worker-year panel
+
+Suppose each row identifies one worker's employer in one year:
+
+```stata
+ferank firm_id, worker(worker_id) time(year) method(sorkin) ///
+    frame(firm_ranking)
+```
+
+Each worker-year must have a single employer assignment. A move is formed
+when consecutive observations have different employers and are at most one
+time unit apart, the default `maxgap(1)`. A missing employer breaks the
+chain. Same-firm continuations add no move. Time must be numeric; its units
+determine the meaning of `maxgap()`.
+
+The command's annual-panel rule cannot identify intervening unemployment or
+concurrent jobs. Resolve those cases before estimation, or construct a move
+table using your own spell and employer-to-employer transition rules.
+
+### A prepared move table
+
+Use `origin` for the employer a worker leaves and `destination` for the
+employer they join. If `moves` contains a count or positive fractional flow:
+
+```stata
 ferank origin destination, method(bradleyterry) flow(moves) ///
-    frame(bt_ranking) replace
+    frame(bt_ranking)
 ```
 
-Worker-period panel:
+Without `flow()`, each row represents one move. Duplicate directed pairs
+are aggregated. Zero flows and self-moves contribute no comparison;
+missing IDs or missing/negative flows are errors. Numeric and string firm
+IDs are supported. Both methods can use either input format.
+
+## Read the results
+
+Immediately after the worker-panel command above:
 
 ```stata
-ferank firm, worker(worker_id) time(year) method(sorkin) ///
-    maxgap(1) frame(firm_ranking) replace
+estat convergence
+estat components
+frame firm_ranking: sort rank
+frame firm_ranking: list firm_id score rank percentile if rank<=10
 ```
 
-Inspect the certificate with `estat convergence` and component coverage with
-`estat components`.
+The result frame contains the original firm ID, method, component, score,
+rank, percentile, and flow totals. The default normalization sets the mean
+score to zero. This only changes the score's origin; it leaves the rankings
+unchanged. `estat convergence` reports computational accuracy, not a
+sampling standard error. Version 0.1 provides point estimates without
+statistical inference.
 
-## Scientific boundary
+Scores are estimated within a **strongly connected component**: a group
+where moves provide a directed path from every firm to every other firm.
+The default selects the largest such group. Firms outside it receive no
+score, so check coverage before interpreting the rankings. If you request
+`component(all)`, each group's scores and ranks are separate; they cannot
+be compared across groups.
 
-Version 0.1 returns point rankings from worker flows. It does not estimate wage
-fixed effects, structural employer values, offer shares, rents, amenities,
-standard errors, bootstrap intervals, or influence functions. It never joins
-components or adds hidden smoothing, teleportation, or ridge terms.
+Sorkin uses the stationary flow system, adjusting stationary mass by firm
+outflow. Bradley–Terry models the destination as winning a pairwise
+comparison against the origin. The scores have different interpretations
+and the methods can produce different rankings. For comparisons with AKM
+effects, match the same firms and choose comparison weights explicitly.
+`normweight()` only centers scores; it does not weight ranks or correlations.
 
-The exact input contract and numerical methods are documented in
-[`docs/methods.md`](docs/methods.md). The long-form
-[`report/ferank_technical_report.tex`](report/ferank_technical_report.tex)
-companion explains the graph theory, estimators, diagnostics, and reproducible
-Veneto example for an applied labor-economics audience. [`PLAN.md`](PLAN.md) is
-the authoritative development and qualification roadmap.
+An existing result frame is protected. Use a new `frame()` name to keep
+another ranking, or specify `replace` to replace that frame after success.
 
-## Development
+## Learn more
 
-The dependency-free Rust workspace is pinned to Rust 1.85.1:
+- [`help ferank`](stata/ferank.sthlp): options, examples, sample rules and all
+  stored results, best viewed in Stata.
+- [Postestimation help](stata/ferank_postestimation.sthlp): graph coverage and
+  numerical certificates.
+- [Methods](docs/methods.md): equations and the precise flow-input contract.
+- [Technical companion](report/README.md): a longer explanation and a
+  reproducible application using a public Veneto teaching extract.
+- [Benchmarks](docs/benchmarks.md): synthetic performance results and their
+  timing boundaries.
+- [Contributing](CONTRIBUTING.md): builds, tests, CI and release qualification.
 
-```sh
-cargo fmt --all --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-targets --all-features
-```
+For a bug report, include the command, Stata version, error message and a
+small reproducible example using synthetic or shareable data. Please do not
+attach confidential worker or firm records.
 
-On the licensed Mac development host:
+## References and license
 
-```sh
-scripts/build_macos_universal.sh
-ci/run_stata_ci.sh quick
-```
+Sorkin, Isaac. 2018. “Ranking Firms Using Revealed Preference.”
+*Quarterly Journal of Economics* 133(3): 1331–1393.
+[doi:10.1093/qje/qjy001](https://doi.org/10.1093/qje/qjy001).
 
-The deterministic performance driver accepts explicit graph and thread sizes:
+Bradley, Ralph Allan, and Milton E. Terry. 1952. “Rank Analysis of Incomplete
+Block Designs: I. The Method of Paired Comparisons.” *Biometrika*
+39(3–4): 324–345.
+[doi:10.1093/biomet/39.3-4.324](https://doi.org/10.1093/biomet/39.3-4.324).
 
-```sh
-FERANK_BENCH_THREADS="1 2 4 8" scripts/benchmark.sh
-```
-
-The current qualification record is in
-[`docs/benchmarks.md`](docs/benchmarks.md).
-
-Platform artifact entrypoints are `scripts/build_macos_universal.sh`,
-`scripts/build_linux_x86_64.sh`, and `scripts/build_windows_x86_64.ps1`.
-`windows-ci.do` is the bounded licensed-Windows driver. A platform is not
-advertised merely because it cross-compiles; it must load and pass the Stata
-fixtures on that platform.
-
-Every accepted checkpoint requires an immutable receipt under
-`.ci/stata/results/<tested-sha>.json` whose exact source SHA and Stata/Rust
-statuses are successful. `latest.json` is only a pointer.
-
-## License
-
-The package is licensed under GPL-3.0-only. See [`LICENSE`](LICENSE),
-[`NOTICE.md`](NOTICE.md), and the CMG provenance record under `vendor/cmg/`.
+Author: Johannes F. Schmieder, Boston University.
+Repository-authored code and the CMG adaptation are GPL-3.0-only. See
+[`LICENSE`](LICENSE), [`NOTICE.md`](NOTICE.md) and the recorded third-party
+provenance for the Stata plugin interface and CMG source.

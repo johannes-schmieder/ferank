@@ -27,5 +27,5 @@ The benchmark wrapper retains resource output when run on the unsandboxed CI
 host; peak RSS remains a release-qualification datum rather than an inferred
 number. The current parallel route materially accelerates Sorkin. The
 Bradley--Terry solve remains dominated by serial PCG/CMG work, so additional
-threading should be retained only after the numerical and worst-case gates in
-`PLAN.md` pass.
+threading should be retained only after numerical equivalence and
+worst-case performance checks pass. See [Contributing](../CONTRIBUTING.md).

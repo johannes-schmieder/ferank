@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$ROOT/target/native-macos"
 DIST="$ROOT/dist"
-RUSTUP_BIN="${RUSTUP_BIN:-/opt/homebrew/bin/rustup}"
+RUSTUP_BIN="${RUSTUP_BIN:-rustup}"
 TOOLCHAIN="${RUST_TOOLCHAIN:-1.85.1}"
 
 mkdir -p "$BUILD" "$DIST"
@@ -12,6 +12,7 @@ RUSTC_BIN="$($RUSTUP_BIN which --toolchain "$TOOLCHAIN" rustc)"
 TOOLCHAIN_BIN="$(dirname "$RUSTC_BIN")"
 export PATH="$TOOLCHAIN_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
 
+cd "$ROOT"
 cargo build --locked --release -p ferank-plugin
 
 COMMON_CFLAGS=(
