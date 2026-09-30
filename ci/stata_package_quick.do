@@ -2,7 +2,7 @@ version 18.0
 set more off
 set varabbrev off
 
-do ci/stata_smoke.do
+assert c(stata_version) >= 18
 adopath ++ "stata"
 ferank, selftest
 
@@ -34,6 +34,7 @@ assert destination == original_destination
 assert flow == original_flow
 assert e(N_results) == 3
 assert e(residual_max) <= 1e-10
+assert `"`e(convergence_certificate)'"' == "success"
 assert e(threads) == 1
 assert e(time_input_graph) >= 0
 assert e(time_solve_rank) >= 0
@@ -68,6 +69,8 @@ ferank origin destination, method(bradleyterry) flow(flow) ///
     frame(bt_result) replace tolerance(1e-10)
 assert e(N_results) == 3
 assert e(gradient_max) <= 1e-10
+assert `"`e(convergence_certificate)'"' == "success"
+assert `"`e(linear_route)'"' != ""
 frame bt_result: assert _N == 3
 frame bt_result: summarize score, meanonly
 assert abs(r(mean)) < 1e-10
@@ -123,5 +126,7 @@ assert _rc == 459
 assert origin == original_origin
 capture frame should_not_exist: count
 assert _rc != 0
+
+do ci/stata_help_examples.do
 
 display as result "FERANK STATA PACKAGE QUICK PASS"

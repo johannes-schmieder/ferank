@@ -8,3 +8,14 @@ __pycache__/
 /.ci/stata/run/
 /dist/
 /benchmark-results/
+/report/data/external/
+/report/output/
+/report/build/
+/literature/
+/stata/*.plugin
+
+# Research records and estimation outputs are never source artifacts.
+*.dta
+*.csv
+*.parquet
+*.feather

@@ -14,5 +14,8 @@ Stata plugin interface, version 3.0. They are redistributed as interface source
 needed to build the plugin. Their recorded hashes and local provenance are in
 `plugin/PROVENANCE.md`. Stata itself and its license are not distributed.
 
-Public distribution still requires review of the exact binary and
-corresponding-source bundle. This notice is not legal advice.
+The Stata interface files retain StataCorp's copyright; this repository does
+not relicense them as GPL code. See StataCorp's
+[plugin interface documentation](https://www.stata.com/plugins/) and the
+original file headers. Source and binary distributions must preserve the
+applicable notices and corresponding source.

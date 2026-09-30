@@ -246,8 +246,8 @@ program define ferank, eclass sortpreserve
     ereturn local normalization "`normalize'"
     ereturn local engine "`engine'"
     ereturn local result_frame "`frame'"
-    ereturn local convergence_certificate "`: global __ferank_certificate'"
-    ereturn local linear_route "`: global __ferank_linear_route'"
+    ereturn local convergence_certificate "`_ferank_certificate'"
+    ereturn local linear_route "`_ferank_linear_route'"
     ereturn scalar N_input = scalar(__ferank_input_rows)
     ereturn scalar N_firms = scalar(__ferank_n_firms)
     ereturn scalar N_results = scalar(__ferank_n_results)

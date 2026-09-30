@@ -18,9 +18,9 @@ mkdir -p "$PACKAGE_ROOT/stata" "$PACKAGE_ROOT/source"
 cp "$ROOT"/stata/*.ado "$ROOT"/stata/*.sthlp "$ROOT"/stata/ferank.pkg \
   "$ROOT"/stata/stata.toc "$PACKAGE_ROOT/stata/"
 cp "$ROOT"/dist/ferank_*.plugin "$PACKAGE_ROOT/stata/"
-cp "$ROOT/LICENSE" "$ROOT/NOTICE.md" "$ROOT/README.md" "$ROOT/STATUS.md" \
+cp "$ROOT/LICENSE" "$ROOT/NOTICE.md" "$ROOT/README.md" "$ROOT/CONTRIBUTING.md" \
   "$PACKAGE_ROOT/"
-cp -R "$ROOT/crates" "$ROOT/plugin" "$ROOT/vendor" "$ROOT/Cargo.toml" \
+cp -R "$ROOT/crates" "$ROOT/plugin" "$ROOT/vendor" "$ROOT/scripts" "$ROOT/docs" "$ROOT/Cargo.toml" \
   "$ROOT/Cargo.lock" "$ROOT/rust-toolchain.toml" "$PACKAGE_ROOT/source/"
 
 tar -C "$ROOT/dist/package" -czf "$ARCHIVE" "ferank-$VERSION"

@@ -1,6 +1,6 @@
 {
-  "completed_at": "2026-09-30T10:35:53.200564Z",
-  "duration_seconds": 0.51,
+  "completed_at": "2026-08-28T12:52:56.623614Z",
+  "duration_seconds": 0.337,
   "failure_detail": null,
   "failure_kind": null,
   "platform": "Unix; Mac (Apple Silicon)",
@@ -10,7 +10,7 @@
   "repository": "johannes-schmieder/ferank",
   "required_log_markers": [
     {
-      "marker": "FERANK STATA HELP EXAMPLES PASS",
+      "marker": "FERANK STATA MATA SMOKE PASS",
       "present": true
     },
     {
@@ -19,7 +19,7 @@
     }
   ],
   "run_attempt": "1",
-  "run_id": "36703363293",
+  "run_id": "33172908936",
   "runner_name": "macstudio-stata-mp18-ferank",
   "rust_mode": "repository",
   "rust_rc": 0,
@@ -27,7 +27,7 @@
   "rust_toolchain": "1.85.1-aarch64-apple-darwin",
   "rustc_version": "rustc 1.85.1 (4eb161250 2025-03-15)",
   "schema_version": 1,
-  "started_at": "2026-09-30T10:35:52.690787Z",
+  "started_at": "2026-08-28T12:52:56.286538Z",
   "stata_bundle_version": "19.0.115",
   "stata_edition": "MP",
   "stata_executable": "/Applications/Stata/StataMP.app/Contents/MacOS/stata-mp",
@@ -37,7 +37,7 @@
   "stata_version": "19",
   "status": "success",
   "suite": "ci/stata_package_quick.do",
-  "tested_sha": "6ff603d93d490330559fde0fb70bbf77f7afb911",
+  "tested_sha": "fdd3577be39faed36e966dc233cb8a41364a8040",
   "tests_failed": 0,
   "tests_passed": 1
 }

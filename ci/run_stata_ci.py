@@ -116,7 +116,7 @@ def tail(path: Path, lines: int = 100) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("profile", nargs="?", default="smoke")
+    parser.add_argument("profile", nargs="?", default="quick")
     args = parser.parse_args()
 
     root = repo_root()
